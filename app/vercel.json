@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "VITE_ENABLE_SUPABASE_AUTH": "true",
+    "VITE_FORCE_BOOTSTRAP_CLOUD_SYNC": "false"
+  },
+  "rewrites": [
+    {
+      "source": "/:path((?!.*\\.).*)*",
+      "destination": "/index.html"
+    }
+  ]
+}
