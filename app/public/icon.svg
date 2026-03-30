@@ -1,0 +1,30 @@
+<svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="92" fill="#1a1a2e" stroke="#d4af37" stroke-width="2"/>
+  
+  <!-- Inner mystical circle -->
+  <circle cx="96" cy="96" r="84" fill="none" stroke="#d4af37" stroke-width="1" opacity="0.5"/>
+  
+  <!-- Outer decoration circle -->
+  <circle cx="96" cy="96" r="76" fill="none" stroke="#9d7e2e" stroke-width="0.5" opacity="0.3"/>
+  
+  <!-- Central star (5-pointed) -->
+  <g transform="translate(96, 96)">
+    <!-- Star shape -->
+    <polygon points="0,-48 14.4,-14.4 48,-8 24,12 30,48 0,24 -30,48 -24,12 -48,-8 -14.4,-14.4" 
+             fill="#d4af37" opacity="0.95"/>
+    
+    <!-- Inner circle glow -->
+    <circle cx="0" cy="0" r="12" fill="#d4af37" opacity="0.4"/>
+    <circle cx="0" cy="0" r="8" fill="#d4af37" opacity="0.6"/>
+  </g>
+  
+  <!-- Decorative elements around star -->
+  <g transform="translate(96, 96)">
+    <!-- Four elemental markers -->
+    <circle cx="0" cy="-60" r="4" fill="#d4af37" opacity="0.7"/>
+    <circle cx="60" cy="0" r="4" fill="#d4af37" opacity="0.7"/>
+    <circle cx="0" cy="60" r="4" fill="#d4af37" opacity="0.7"/>
+    <circle cx="-60" cy="0" r="4" fill="#d4af37" opacity="0.7"/>
+  </g>
+</svg>
