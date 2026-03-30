@@ -200,6 +200,53 @@ const hasAnyLocalData = (entry: {
   );
 };
 
+const sanitizeSequenceSnapshot = (
+  cycleSequences: AnyRecord[],
+  habits: AnyRecord[],
+  sequenceMemberships: AnyRecord[]
+): { sequences: AnyRecord[]; memberships: AnyRecord[] } => {
+  const sequenceIds = new Set(
+    cycleSequences
+      .map((sequence) => sequence.id)
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+  );
+
+  const habitIds = new Set(
+    habits
+      .map((habit) => habit.id)
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+  );
+
+  const filteredMemberships = sequenceMemberships.filter((membership) => {
+    const sequenceId = typeof membership.sequenceId === 'string' ? membership.sequenceId : null;
+    const habitId = typeof membership.habitId === 'string' ? membership.habitId : null;
+    if (!sequenceId || !habitId) return false;
+    return sequenceIds.has(sequenceId) && habitIds.has(habitId);
+  });
+
+  const membershipsBySequence = filteredMemberships.reduce<Record<string, AnyRecord[]>>((acc, membership) => {
+    const sequenceId = String(membership.sequenceId);
+    if (!acc[sequenceId]) acc[sequenceId] = [];
+    acc[sequenceId].push(membership);
+    return acc;
+  }, {});
+
+  const normalizedMemberships = Object.values(membershipsBySequence).flatMap((memberships) =>
+    memberships
+      .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
+      .map((membership, index) => ({
+        ...membership,
+        position: index,
+      }))
+  );
+
+  // Keep sequences even when they become empty; only clean dangling links.
+  return {
+    sequences: cycleSequences,
+    memberships: normalizedMemberships,
+  };
+};
+
 const applyDomainSnapshotToStore = (snapshot: {
   customAreas: AnyRecord[];
   customSubareasRecord: Record<string, AnyRecord[]>;
@@ -212,6 +259,12 @@ const applyDomainSnapshotToStore = (snapshot: {
   cycleSequences: AnyRecord[];
   sequenceMemberships: AnyRecord[];
 }) => {
+  const sanitized = sanitizeSequenceSnapshot(
+    dedupeById(snapshot.cycleSequences),
+    dedupeById(snapshot.habits),
+    dedupeById(snapshot.sequenceMemberships)
+  );
+
   useAppStore.setState(() => ({
     customAreas: dedupeById(snapshot.customAreas) as never,
     customSubareas: dedupeCustomSubareasRecord(snapshot.customSubareasRecord) as never,
@@ -221,8 +274,8 @@ const applyDomainSnapshotToStore = (snapshot: {
     projects: dedupeById(snapshot.projects) as never,
     quests: dedupeById(snapshot.quests) as never,
     drafts: dedupeById(snapshot.drafts) as never,
-    cycleSequences: dedupeById(snapshot.cycleSequences) as never,
-    sequenceMemberships: dedupeById(snapshot.sequenceMemberships) as never,
+    cycleSequences: sanitized.sequences as never,
+    sequenceMemberships: sanitized.memberships as never,
   }));
 
   useAppStore.getState().recomputeUserProgress();
