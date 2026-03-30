@@ -1,0 +1,36 @@
+# Keep this repository focused on application code only.
+# Ignore everything at root, then allow only app/ content.
+/*
+!/.gitignore
+!/app/
+!/app/**
+
+# Never commit local dependencies, build artifacts, env secrets, or logs.
+app/node_modules/
+app/dist/
+app/.vite/
+app/.cache/
+app/*.tsbuildinfo
+app/.eslintcache
+app/.env
+app/.env.local
+app/.env.development.local
+app/.env.test.local
+app/.env.production.local
+!app/.env.example
+app/npm-debug.log*
+app/yarn-debug.log*
+app/yarn-error.log*
+app/pnpm-debug.log*
+app/.vercel/
+
+# Optional docs and local-only notes inside app are excluded.
+app/docs/
+app/**/*.md
+!app/README.md
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

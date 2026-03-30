@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 260 30% 4%;
+    --foreground: 0 0% 98%;
+    --card: 260 35% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 260 35% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 270 60% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 20% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 260 20% 15%;
+    --muted-foreground: 260 10% 60%;
+    --accent: 45 100% 50%;
+    --accent-foreground: 260 30% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 260 20% 18%;
+    --input: 260 20% 18%;
+    --ring: 270 60% 55%;
+    --radius: 0.75rem;
+    
+    /* Cores Elementais */
+    --terra: 135 25% 30%;
+    --fogo: 22 100% 41%;
+    --agua: 200 58% 25%;
+    --ar: 182 38% 76%;
+    --mana: 45 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-void text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0A0A0F 0%, #0D1420 50%, #0A0A0F 100%);
+    min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+  }
+  
+  .font-mystic {
+    font-family: 'Cinzel Decorative', cursive;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Cards */
+  .glass-card {
+    @apply bg-mystic-purple/60 backdrop-blur-xl border border-white/10 rounded-2xl;
+    box-shadow: 
+      0 4px 30px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+  
+  .glass-card-hover:hover {
+    @apply bg-mystic-purple/80 border-white/20;
+    box-shadow: 
+      0 8px 40px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(157, 78, 221, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Element Glows */
+  .glow-terra {
+    box-shadow: 0 0 20px rgba(62, 95, 68, 0.4), 0 0 40px rgba(62, 95, 68, 0.2);
+  }
+  
+  .glow-fogo {
+    box-shadow: 0 0 20px rgba(209, 73, 0, 0.5), 0 0 40px rgba(209, 73, 0, 0.3);
+  }
+  
+  .glow-agua {
+    box-shadow: 0 0 20px rgba(27, 73, 101, 0.4), 0 0 40px rgba(72, 202, 228, 0.2);
+  }
+  
+  .glow-ar {
+    box-shadow: 0 0 20px rgba(168, 218, 220, 0.3), 0 0 40px rgba(224, 247, 250, 0.2);
+  }
+  
+  .glow-mana {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(157, 78, 221, 0.3);
+  }
+  
+  /* Element Borders */
+  .border-terra {
+    border-color: rgba(62, 95, 68, 0.5);
+  }
+  
+  .border-fogo {
+    border-color: rgba(209, 73, 0, 0.5);
+  }
+  
+  .border-agua {
+    border-color: rgba(27, 73, 101, 0.5);
+  }
+  
+  .border-ar {
+    border-color: rgba(168, 218, 220, 0.5);
+  }
+  
+  /* Gradient Backgrounds by Element */
+  .bg-element-terra {
+    background: linear-gradient(135deg, rgba(62, 95, 68, 0.15) 0%, rgba(26, 16, 37, 0.9) 100%);
+  }
+  
+  .bg-element-fogo {
+    background: linear-gradient(135deg, rgba(209, 73, 0, 0.15) 0%, rgba(26, 16, 37, 0.9) 100%);
+  }
+  
+  .bg-element-agua {
+    background: linear-gradient(135deg, rgba(27, 73, 101, 0.15) 0%, rgba(26, 16, 37, 0.9) 100%);
+  }
+  
+  .bg-element-ar {
+    background: linear-gradient(135deg, rgba(168, 218, 220, 0.15) 0%, rgba(26, 16, 37, 0.9) 100%);
+  }
+  
+  /* Text Glow */
+  .text-glow {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  }
+  
+  .text-glow-mana {
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+  }
+  
+  /* Shimmer Effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(10, 10, 15, 0.5);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: rgba(157, 78, 221, 0.4);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(157, 78, 221, 0.6);
+  }
+  
+  /* Selection */
+  ::selection {
+    background: rgba(157, 78, 221, 0.4);
+    color: white;
+  }
+}
+
+@layer utilities {
+  /* Animation Utilities */
+  .animate-float-delayed {
+    animation: float 3s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+  
+  .animate-float-slow {
+    animation: float 5s ease-in-out infinite;
+  }
+  
+  /* Gradient Text */
+  .gradient-text {
+    background: linear-gradient(135deg, #FFD700 0%, #9D4EDD 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .gradient-text-mana {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Backdrop Utilities */
+  .backdrop-glass {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
