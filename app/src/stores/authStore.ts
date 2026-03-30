@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseAuthEnabled } from '@/lib/supabase';
-import { getLocalImportStatus, importLocalStateToSupabase } from '@/services/supabaseImport';
 import {
   getCloudSyncFingerprint,
   hydrateAppStoreFromCloud,
@@ -16,8 +15,6 @@ interface AuthState {
   isLoading: boolean;
   isInitialized: boolean;
   isMigratingLocalData: boolean;
-  localMigrationDone: boolean;
-  localMigrationMessage: string | null;
   errorMessage: string | null;
   noticeMessage: string | null;
   initialize: () => Promise<void>;
@@ -51,7 +48,6 @@ const runBootstrapCloudSync = async (
     try {
       await persistAppStoreToCloud(userId);
       set({
-        localMigrationMessage: null,
         noticeMessage: null,
       });
       return;
@@ -64,10 +60,6 @@ const runBootstrapCloudSync = async (
   }
 
   set({
-    localMigrationMessage:
-      lastError instanceof Error
-        ? `Falha na sincronização inicial forçada: ${lastError.message}`
-        : 'Falha na sincronização inicial forçada com a nuvem.',
     noticeMessage:
       lastError instanceof Error
         ? `Falha ao sincronizar com a nuvem: ${lastError.message}`
@@ -156,8 +148,7 @@ const stopCloudAutoSync = () => {
 };
 
 const startCloudAutoSync = (
-  userId: string,
-  set: (partial: Partial<AuthState>) => void
+  userId: string
 ) => {
   stopCloudAutoSync();
   currentFingerprint = getCloudSyncFingerprint();
@@ -179,14 +170,14 @@ const startCloudAutoSync = (
         await persistAppStoreToCloud(userId);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : '';
-        set({
-          localMigrationMessage:
-            errorText.toLowerCase().includes('schema cloud')
-              ? 'Schema Supabase ainda não aplicado. Rode a migration SQL antes de usar cloud-first.'
-              : error instanceof Error
-              ? error.message
-              : 'Falha ao sincronizar com a nuvem.',
-        });
+        // Cloud sync error - could be logged but no user-facing message
+        if (errorText.toLowerCase().includes('schema cloud')) {
+          console.error('Schema Supabase ainda não aplicado. Rode a migration SQL antes de usar cloud-first.');
+        } else if (error instanceof Error) {
+          console.error(error.message);
+        } else {
+          console.error('Falha ao sincronizar com a nuvem.');
+        }
       }
     }, 900);
   });
@@ -198,8 +189,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   isInitialized: false,
   isMigratingLocalData: false,
-  localMigrationDone: false,
-  localMigrationMessage: null,
   errorMessage: null,
   noticeMessage: null,
 
@@ -232,14 +221,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: session?.user ?? null,
       isLoading: false,
       isInitialized: true,
-      localMigrationDone: session?.user?.id
-        ? getLocalImportStatus(session.user.id).doneForCurrentUser
-        : false,
-      localMigrationMessage: session?.user?.id
-        ? getLocalImportStatus(session.user.id).doneForCurrentUser
-          ? 'Importação local já concluída para esta conta.'
-          : null
-        : null,
     });
 
     if (session?.user?.id) {
@@ -254,7 +235,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (shouldResetForFreshCloudUser(session.user.id, localUserIdBeforeHydration)) {
             resetAppStoreForFreshCloudUser(session.user.id);
           }
-          set({ localMigrationMessage: null });
         }
       } catch (error) {
         const errorText = error instanceof Error ? error.message : '';
@@ -270,7 +250,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isHydratingCloudSnapshot = false;
       }
 
-      startCloudAutoSync(session.user.id, set);
+      startCloudAutoSync(session.user.id);
 
       if (shouldForceBootstrapCloudSync && shouldRunForcedBootstrap) {
         await runBootstrapCloudSync(session.user.id, set);
@@ -283,19 +263,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-        const localImportStatus = nextSession?.user?.id
-          ? getLocalImportStatus(nextSession.user.id)
-          : null;
-
         set({
           session: nextSession,
           user: nextSession?.user ?? null,
-          localMigrationDone: localImportStatus?.doneForCurrentUser ?? false,
-          localMigrationMessage: localImportStatus?.doneForCurrentUser
-            ? 'Importação local já concluída para esta conta.'
-            : localImportStatus && !localImportStatus.canImportForCurrentUser
-            ? 'Dados locais deste navegador já foram vinculados a outra conta.'
-            : get().localMigrationMessage,
         });
 
         if (nextSession?.user?.id) {
@@ -311,7 +281,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 if (shouldResetForFreshCloudUser(nextSession.user.id, localUserIdBeforeHydration)) {
                   resetAppStoreForFreshCloudUser(nextSession.user.id);
                 }
-                set({ localMigrationMessage: null });
               }
             } catch (error) {
               const errorText = error instanceof Error ? error.message : '';
@@ -327,7 +296,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               isHydratingCloudSnapshot = false;
             }
 
-            startCloudAutoSync(nextSession.user.id, set);
+            startCloudAutoSync(nextSession.user.id);
 
             if (shouldForceBootstrapCloudSync && shouldRunForcedBootstrap) {
               await runBootstrapCloudSync(nextSession.user.id, set);
@@ -398,8 +367,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       errorMessage: error?.message ?? null,
       session: error ? get().session : null,
       user: error ? get().user : null,
-      localMigrationDone: error ? get().localMigrationDone : false,
-      localMigrationMessage: error ? get().localMigrationMessage : null,
       noticeMessage: error ? null : 'Sessao encerrada com sucesso.',
     });
   },
@@ -426,70 +393,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  migrateLocalData: async (force = false) => {
-    const currentUser = get().user;
-    if (!currentUser?.id) return;
-
-    set({ isMigratingLocalData: true, localMigrationMessage: null });
-
-    try {
-      const status = getLocalImportStatus(currentUser.id);
-      if (!status.canImportForCurrentUser && !force) {
-        set({
-          isMigratingLocalData: false,
-          localMigrationDone: false,
-          localMigrationMessage:
-            'Dados locais deste navegador ja pertencem a outra conta. Importacao bloqueada para evitar mistura.',
-        });
-        return;
-      }
-
-      const result = await importLocalStateToSupabase(currentUser.id, { force });
-      set({
-        isMigratingLocalData: false,
-        localMigrationDone: result.imported || result.message.includes('ja realizada'),
-        localMigrationMessage: result.message,
-      });
-    } catch (error) {
-      set({
-        isMigratingLocalData: false,
-        localMigrationDone: false,
-        localMigrationMessage:
-          error instanceof Error ? error.message : 'Falha inesperada na migracao local.',
-      });
-    }
+  migrateLocalData: async () => {
+    // Disabled: local import no longer supported
   },
 
   restoreFromLocalBackupToCloud: async () => {
     const currentUser = get().user;
     if (!currentUser?.id) {
-      set({ localMigrationMessage: 'Faca login para restaurar o backup local.' });
+      console.warn('Nao e possivel restaurar backup: usuario nao autenticado');
       return;
     }
 
-    set({ isMigratingLocalData: true, localMigrationMessage: null });
+    set({ isMigratingLocalData: true });
 
     try {
       const recovered = recoverDomainDataFromLocalBackup();
       if (!recovered) {
-        set({
-          isMigratingLocalData: false,
-          localMigrationMessage: 'Nenhum backup local encontrado neste navegador.',
-        });
+        console.info('Nenhum backup local encontrado neste navegador.');
+        set({ isMigratingLocalData: false });
         return;
       }
 
       await persistAppStoreToCloud(currentUser.id);
-      set({
-        isMigratingLocalData: false,
-        localMigrationMessage: 'Backup local restaurado com sucesso.',
-      });
+      set({ isMigratingLocalData: false });
     } catch (error) {
-      set({
-        isMigratingLocalData: false,
-        localMigrationMessage:
-          error instanceof Error ? error.message : 'Falha ao restaurar backup local para nuvem.',
-      });
+      console.error('Falha ao restaurar backup local para nuvem:', error);
+      set({ isMigratingLocalData: false });
     }
   },
 

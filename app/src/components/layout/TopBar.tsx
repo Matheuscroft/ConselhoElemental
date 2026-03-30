@@ -6,7 +6,6 @@ import { useAppStore } from '@/stores/appStore';
 import { useAuthStore } from '@/stores/authStore';
 import { isSupabaseAuthEnabled } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -24,9 +23,6 @@ interface TopBarProps {
   rightAction?: React.ReactNode;
 }
 
-const isLocalImportEnabled =
-  (import.meta.env.VITE_ENABLE_LOCAL_IMPORT as string | undefined) === 'true';
-
 export const TopBar: React.FC<TopBarProps> = ({
   title,
   showBackButton = false,
@@ -38,15 +34,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   const {
     user: authUser,
     signOut,
-    migrateLocalData,
     restoreFromLocalBackupToCloud,
     isMigratingLocalData,
-    localMigrationDone,
-    localMigrationMessage,
   } = useAuthStore();
   const [isAccountModalOpen, setIsAccountModalOpen] = React.useState(false);
   const [newAccountName, setNewAccountName] = React.useState('');
-  const [importCurrentData, setImportCurrentData] = React.useState(true);
 
   const activeAccount = React.useMemo(
     () => accounts.find((account) => account.id === currentAccountId) || null,
@@ -127,13 +119,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {isSupabaseAuthEnabled && localMigrationMessage && (
-          <div className="px-4 pb-2 max-w-lg mx-auto">
-            <p className="rounded-md border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-100">
-              {localMigrationMessage}
-            </p>
-          </div>
-        )}
       </motion.header>
 
       <Dialog open={isAccountModalOpen} onOpenChange={setIsAccountModalOpen}>
@@ -152,23 +137,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {authUser?.email || 'Usuario autenticado sem email visivel'}
               </p>
               <div className="flex items-center gap-2">
-                {isLocalImportEnabled && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    disabled={isMigratingLocalData || localMigrationDone}
-                    onClick={() => {
-                      void migrateLocalData(false);
-                    }}
-                  >
-                    {isMigratingLocalData
-                      ? 'Importando...'
-                      : localMigrationDone
-                      ? 'Importacao local concluida'
-                      : 'Importar dados locais para nuvem'}
-                  </Button>
-                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -194,9 +162,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                   Sair
                 </Button>
               </div>
-              {localMigrationMessage && (
-                <p className="text-xs text-white/70">{localMigrationMessage}</p>
-              )}
             </div>
           )}
 
@@ -231,22 +196,12 @@ export const TopBar: React.FC<TopBarProps> = ({
               placeholder="Nome da conta"
               className="border-white/20 bg-white/5"
             />
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="import-account-data"
-                checked={importCurrentData}
-                onCheckedChange={(checked) => setImportCurrentData(checked === true)}
-              />
-              <Label htmlFor="import-account-data" className="text-sm text-white/80">
-                Importar dados atuais para esta conta
-              </Label>
-            </div>
             <Button
               type="button"
               className="w-full"
               onClick={() => {
                 if (!newAccountName.trim()) return;
-                createAccount(newAccountName, importCurrentData);
+                createAccount(newAccountName, false);
                 setNewAccountName('');
               }}
             >

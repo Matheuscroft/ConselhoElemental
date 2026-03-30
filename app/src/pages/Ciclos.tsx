@@ -1284,19 +1284,20 @@ export const Ciclos: React.FC = () => {
           const aggArea = allAreasForEdit.find((a) => a.id === areaId) || AREAS.find((a) => a.id === areaId);
           const aggSubarea = data.subareaId ? getAreaById(data.subareaId) : undefined;
           if (!aggArea) return null;
+          const badgeLabel = `+${Math.round(data.points)} ${aggArea.name}${aggSubarea ? ` | ${aggSubarea.name}` : ''}`;
           return (
             <Badge 
               key={areaId}
               variant="outline"
-              className="text-[9px]"
+              className="text-[9px] truncate max-w-xs"
               style={{ 
                 backgroundColor: `${aggArea.color}10`, 
                 borderColor: `${aggArea.color}50`,
                 color: aggArea.color 
               }}
+              title={badgeLabel}
             >
-              +{Math.round(data.points)} {aggArea.name}
-              {aggSubarea ? ` | ${aggSubarea.name}` : ''}
+              {badgeLabel}
             </Badge>
           );
         });
@@ -1304,19 +1305,20 @@ export const Ciclos: React.FC = () => {
       
       // Se não tem filhos, mostra badge próprio
       if (child.areaId && childType === 'valuable') {
+        const badgeLabel = `+${Math.round(child.plannedPoints)} ${childAreaDisplayName}${childSubarea ? ` | ${childSubarea.name}` : ''}`;
         return (
           <Badge
             key="own-area"
             variant="outline"
-            className="text-[9px]"
+            className="text-[9px] truncate max-w-xs"
             style={{
               backgroundColor: `${(childArea?.color || '#808080')}20`,
               borderColor: `${(childArea?.color || '#808080')}80`,
               color: childArea?.color || '#808080',
             }}
+            title={badgeLabel}
           >
-            +{Math.round(child.plannedPoints)} {childAreaDisplayName}
-            {childSubarea ? ` | ${childSubarea.name}` : ''}
+            {badgeLabel}
           </Badge>
         );
       }
@@ -2074,23 +2076,26 @@ export const Ciclos: React.FC = () => {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px]">
-                            <Badge variant="outline" className="bg-mystic-arcane/20 border-mystic-arcane/40 text-mystic-gold text-[10px]">
+                            <Badge variant="outline" className="bg-mystic-arcane/20 border-mystic-arcane/40 text-mystic-gold text-[10px] truncate">
                               Sequência: {item.sequence.name} ({item.currentPositionLabel})
                             </Badge>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px]"
-                              style={{
-                                backgroundColor: `${(seqArea?.color || '#808080')}20`,
-                                borderColor: `${(seqArea?.color || '#808080')}80`,
-                                color: seqArea?.color || '#808080',
-                              }}
-                            >
-                              +{Math.round(sequenceHabit.plannedPoints || 0)} {seqAreaDisplayName}
-                              {seqSubarea ? ` | ${seqSubarea.name}` : ''}
-                            </Badge>
+                            {seqAreaDisplayName && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] truncate max-w-xs"
+                                style={{
+                                  backgroundColor: `${(seqArea?.color || '#808080')}20`,
+                                  borderColor: `${(seqArea?.color || '#808080')}80`,
+                                  color: seqArea?.color || '#808080',
+                                }}
+                                title={`+${Math.round(sequenceHabit.plannedPoints || 0)} ${seqAreaDisplayName}${seqSubarea ? ` | ${seqSubarea.name}` : ''}`}
+                              >
+                                +{Math.round(sequenceHabit.plannedPoints || 0)} {seqAreaDisplayName}
+                                {seqSubarea ? ` | ${seqSubarea.name}` : ''}
+                              </Badge>
+                            )}
                             {sequenceHabit.plannedTimeMinutes > 0 && (
-                              <Badge variant="outline" className="bg-white/5 text-white/60 text-[10px]">
+                              <Badge variant="outline" className="bg-white/5 text-white/60 text-[10px] flex-shrink-0">
                                 <Clock className="w-3 h-3 mr-1" />
                                 {formatDuration(sequenceHabit.plannedTimeMinutes)}
                               </Badge>
@@ -2394,10 +2399,10 @@ export const Ciclos: React.FC = () => {
                           )}
                         </div>
 
-                        <div className="mt-2 flex items-start justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
+                        <div className="mt-2 flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                             {habit.controlledBySequenceId && (
-                              <Badge variant="outline" className="bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold text-[10px]">
+                              <Badge variant="outline" className="bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold text-[10px] truncate">
                                 Em sequência
                               </Badge>
                             )}
@@ -2405,12 +2410,13 @@ export const Ciclos: React.FC = () => {
                             {primaryAreaBadgeLabel && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px]"
+                                className="text-[10px] truncate max-w-xs"
                                 style={{
                                   backgroundColor: `${(area?.color || element.color)}15`,
                                   borderColor: `${(area?.color || element.color)}40`,
                                   color: area?.color || element.color,
                                 }}
+                                title={primaryAreaBadgeLabel}
                               >
                                 {primaryAreaBadgeLabel}
                               </Badge>
@@ -2421,25 +2427,26 @@ export const Ciclos: React.FC = () => {
                               const aggArea = allAreasForEdit.find((a) => a.id === areaId) || AREAS.find((a) => a.id === areaId);
                               const aggSubarea = data.subareaId ? getAreaById(data.subareaId) : undefined;
                               if (!aggArea) return null;
+                              const badgeLabel = `+${Math.round(data.points)} ${aggArea.name}${aggSubarea ? ` | ${aggSubarea.name}` : ''}`;
                               return (
                                 <Badge 
                                   key={areaId}
                                   variant="outline"
-                                  className="text-[10px]"
+                                  className="text-[10px] truncate max-w-xs"
                                   style={{ 
                                     backgroundColor: `${aggArea.color}10`, 
                                     borderColor: `${aggArea.color}50`,
                                     color: aggArea.color 
                                   }}
+                                  title={badgeLabel}
                                 >
-                                  +{Math.round(data.points)} {aggArea.name}
-                                  {aggSubarea ? ` | ${aggSubarea.name}` : ''}
+                                  {badgeLabel}
                                 </Badge>
                               );
                             })}
 
                             {habit.plannedTimeMinutes > 0 && (
-                              <Badge variant="outline" className="bg-white/5 text-white/60 text-[10px]">
+                              <Badge variant="outline" className="bg-white/5 text-white/60 text-[10px] flex-shrink-0">
                                 <Clock className="w-3 h-3 mr-1" />
                                 {formatDuration(habit.plannedTimeMinutes)}
                               </Badge>
