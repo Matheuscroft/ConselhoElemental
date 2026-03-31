@@ -45,6 +45,25 @@ const isHabitCompletedOnDate = (habit: Habit, completionDate: Date | string | nu
   return habit.completions.some((completion) => toDayStamp(completion.completionDate) === targetDay);
 };
 
+const sanitizeNonNegativeNumber = (value: unknown): number | null => {
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return null;
+    return Math.max(0, value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed)) return null;
+
+    return Math.max(0, parsed);
+  }
+
+  return null;
+};
+
 const getHabitBasePoints = (habit: Habit): number => {
   const semanticType = habit.semanticType ?? 'valuable';
   if (semanticType !== 'valuable') return 0;
@@ -54,11 +73,13 @@ const getHabitBasePoints = (habit: Habit): number => {
     return 0;
   }
 
-  if (habit.semanticValueBackup && typeof habit.semanticValueBackup.plannedPoints === 'number') {
-    return Math.max(0, habit.semanticValueBackup.plannedPoints);
-  }
+  const livePlannedPoints = sanitizeNonNegativeNumber(habit.plannedPoints);
+  if (livePlannedPoints != null) return livePlannedPoints;
 
-  return Math.max(0, habit.plannedPoints ?? 0);
+  const backupPlannedPoints = sanitizeNonNegativeNumber(habit.semanticValueBackup?.plannedPoints);
+  if (backupPlannedPoints != null) return backupPlannedPoints;
+
+  return 0;
 };
 
 export const ScoreHierarchyPanel: React.FC<ScoreHierarchyPanelProps> = ({

@@ -97,8 +97,22 @@ const isHabitCompletedOnDate = (
 };
 
 const sanitizeNonNegativeNumber = (value: unknown): number | null => {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  return Math.max(0, value);
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return null;
+    return Math.max(0, value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed)) return null;
+
+    return Math.max(0, parsed);
+  }
+
+  return null;
 };
 
 const getHabitPlannedPoints = (habit: Habit): number => {
