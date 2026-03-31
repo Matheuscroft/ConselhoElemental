@@ -96,6 +96,49 @@ const isHabitCompletedOnDate = (
   return habit.completions.some((completion) => toDayStamp(completion.completionDate) === targetDay);
 };
 
+const sanitizeNonNegativeNumber = (value: unknown): number | null => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  return Math.max(0, value);
+};
+
+const getHabitPlannedPoints = (habit: Habit): number => {
+  const livePlannedPoints = sanitizeNonNegativeNumber(habit.plannedPoints);
+  if (livePlannedPoints != null) return livePlannedPoints;
+
+  const backupPlannedPoints = sanitizeNonNegativeNumber(habit.semanticValueBackup?.plannedPoints);
+  if (backupPlannedPoints != null) return backupPlannedPoints;
+
+  return 0;
+};
+
+const getHabitPlannedMinutes = (habit: Habit): number => {
+  const livePlannedMinutes = sanitizeNonNegativeNumber(habit.plannedTimeMinutes);
+  if (livePlannedMinutes != null) return livePlannedMinutes;
+
+  const backupPlannedMinutes = sanitizeNonNegativeNumber(habit.semanticValueBackup?.plannedTimeMinutes);
+  if (backupPlannedMinutes != null) return backupPlannedMinutes;
+
+  return 0;
+};
+
+const syncHabitSemanticBackups = (habit: Habit): Habit => {
+  const semanticType = habit.semanticType ?? 'valuable';
+  if (semanticType !== 'valuable') return habit;
+
+  const plannedPoints = getHabitPlannedPoints(habit);
+  const plannedTimeMinutes = getHabitPlannedMinutes(habit);
+
+  return {
+    ...habit,
+    plannedPoints,
+    plannedTimeMinutes,
+    semanticValueBackup: {
+      plannedPoints,
+      plannedTimeMinutes,
+    },
+  };
+};
+
 const getHabitBasePoints = (habit: Habit): number => {
   const semanticType = habit.semanticType ?? 'valuable';
   if (semanticType !== 'valuable') return 0;
@@ -105,11 +148,7 @@ const getHabitBasePoints = (habit: Habit): number => {
     return 0;
   }
 
-  if (habit.semanticValueBackup && typeof habit.semanticValueBackup.plannedPoints === 'number') {
-    return Math.max(0, habit.semanticValueBackup.plannedPoints);
-  }
-
-  return Math.max(0, habit.plannedPoints ?? 0);
+  return getHabitPlannedPoints(habit);
 };
 
 const calculateCompletedDescendantsScoreForDate = (
@@ -2365,7 +2404,9 @@ export const useAppStore = create<AppState>()(
       updateHabit: (habitId, updates) => {
         set((state) => ({
           habits: state.habits.map((habit) =>
-            habit.id === habitId ? { ...habit, ...updates, updatedAt: new Date() } : habit
+            habit.id === habitId
+              ? syncHabitSemanticBackups({ ...habit, ...updates, updatedAt: new Date() })
+              : habit
           ),
         }));
       },
@@ -2600,7 +2641,7 @@ export const useAppStore = create<AppState>()(
         const updateRecursively = (habits: Habit[]): Habit[] => {
           return habits.map((habit) => {
             if (habit.id === habitId) {
-              return { ...habit, ...updates, updatedAt: new Date() };
+              return syncHabitSemanticBackups({ ...habit, ...updates, updatedAt: new Date() });
             }
             if (habit.childHabits.length > 0) {
               return {
