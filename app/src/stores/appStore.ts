@@ -148,7 +148,8 @@ const getHabitBasePoints = (habit: Habit): number => {
     return 0;
   }
 
-  return getHabitPlannedPoints(habit);
+  const points = getHabitPlannedPoints(habit);
+  return points;
 };
 
 const calculateCompletedDescendantsScoreForDate = (
@@ -170,7 +171,8 @@ const calculateRootHabitScoreForDate = (
     ? getHabitBasePoints(habit) 
     : 0;
   const descendantsScore = calculateCompletedDescendantsScoreForDate(habit.childHabits, completionDate);
-  return ownBaseScore + descendantsScore;
+  const total = ownBaseScore + descendantsScore;
+  return total;
 };
 
 const accumulateCompletedHabitContributionsForDate = (
@@ -2604,7 +2606,13 @@ export const useAppStore = create<AppState>()(
                 ...habit,
                 childHabits: [...habit.childHabits, newHabit],
                 isAggregator: true,
-                plannedPoints: isFirstChild ? 0 : habit.plannedPoints,
+                 semanticValueBackup: {
+                   plannedPoints: isFirstChild 
+                     ? (habit.plannedPoints ?? habit.semanticValueBackup?.plannedPoints ?? DEFAULT_SCORES.CICLO.plannedPoints)
+                     : habit.semanticValueBackup?.plannedPoints ?? habit.plannedPoints,
+                   plannedTimeMinutes: habit.semanticValueBackup?.plannedTimeMinutes ?? habit.plannedTimeMinutes,
+                 },
+                 plannedPoints: 0,
               };
             }
             if (habit.childHabits.length > 0) {
@@ -3439,7 +3447,9 @@ export const useAppStore = create<AppState>()(
 
               return {
                 ...h,
-                plannedPoints: hasChildren ? (aggregated.totalPoints || 0) : h.plannedPoints,
+                 plannedPoints: hasChildren 
+                   ? (aggregated.totalPoints || 0) 
+                   : (h.semanticValueBackup?.plannedPoints ?? h.plannedPoints),
                 plannedTimeMinutes: hasChildren ? (aggregated.totalTime || 0) : h.plannedTimeMinutes,
                 areaId: hasChildren && topAreaId ? topAreaId : h.areaId,
                 isAggregator: hasChildren,
