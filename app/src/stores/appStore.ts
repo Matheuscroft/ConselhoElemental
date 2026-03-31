@@ -166,7 +166,9 @@ const calculateRootHabitScoreForDate = (
   habit: Habit,
   completionDate: Date | string | number
 ): number => {
-  const ownBaseScore = getHabitBasePoints(habit);
+  const ownBaseScore = isHabitCompletedOnDate(habit, completionDate) 
+    ? getHabitBasePoints(habit) 
+    : 0;
   const descendantsScore = calculateCompletedDescendantsScoreForDate(habit.childHabits, completionDate);
   return ownBaseScore + descendantsScore;
 };
