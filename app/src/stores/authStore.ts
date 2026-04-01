@@ -262,13 +262,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!unsubscribeAuthListener) {
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      } = supabase.auth.onAuthStateChange((event, nextSession) => {
         set({
           session: nextSession,
           user: nextSession?.user ?? null,
         });
 
         if (nextSession?.user?.id) {
+          const shouldHydrateFromCloud = event === 'SIGNED_IN' || event === 'USER_UPDATED';
+
+          if (!shouldHydrateFromCloud) {
+            // Ignore TOKEN_REFRESHED / INITIAL_SESSION to avoid pulling stale cloud snapshot
+            // over newer in-memory local state right after a user action.
+            startCloudAutoSync(nextSession.user.id);
+            return;
+          }
+
           void (async () => {
             let shouldRunForcedBootstrap = false;
             const localUserIdBeforeHydration = useAppStore.getState().user.id;
