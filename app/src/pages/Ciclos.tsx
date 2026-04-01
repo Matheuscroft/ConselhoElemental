@@ -177,6 +177,7 @@ export const Ciclos: React.FC = () => {
   const [executionTaskElapsedSeconds, setExecutionTaskElapsedSeconds] = useState(0);
   const [executionTimings, setExecutionTimings] = useState<Record<string, ExecutionTiming>>({});
   const executionEarnedPointsRef = useRef(0);
+  const completionActionLockRef = useRef<Record<string, number>>({});
 
   const dayShortcuts = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
   const dayWindowShift = 7;
@@ -777,7 +778,28 @@ export const Ciclos: React.FC = () => {
   };
 
   // Complete habit directly without opening timer.
+  const withCompletionLock = (habitId: string, action: () => void) => {
+    const lockKey = `${habitId}-${normalizeDate(selectedDate).toDateString()}`;
+    const now = Date.now();
+    const lockedUntil = completionActionLockRef.current[lockKey] || 0;
+
+    if (lockedUntil > now) {
+      return;
+    }
+
+    completionActionLockRef.current[lockKey] = now + 700;
+
+    action();
+
+    setTimeout(() => {
+      if ((completionActionLockRef.current[lockKey] || 0) <= now + 700) {
+        delete completionActionLockRef.current[lockKey];
+      }
+    }, 800);
+  };
+
   const handleQuickCompleteHabit = (habit: Habit) => {
+    withCompletionLock(habit.id, () => {
     if (activeHabit === habit.id) {
       stopTimer();
       setShowTimer(false);
@@ -794,6 +816,25 @@ export const Ciclos: React.FC = () => {
       setCompletedHabitId(null);
       setEarnedPoints(0);
     }, 3000);
+    });
+  };
+
+  const handleQuickUncompleteHabit = (habit: Habit) => {
+    withCompletionLock(habit.id, () => {
+      uncompleteHabit(habit.id, selectedDate);
+    });
+  };
+
+  const handleQuickCompleteChildHabit = (child: Habit) => {
+    withCompletionLock(child.id, () => {
+      completeHabitChild(child.id, child.plannedTimeMinutes, selectedDate);
+    });
+  };
+
+  const handleQuickUncompleteChildHabit = (child: Habit) => {
+    withCompletionLock(child.id, () => {
+      uncompleteHabitChild(child.id, selectedDate);
+    });
   };
 
   // Stop and complete habit from simple timer modal.
@@ -1383,14 +1424,20 @@ export const Ciclos: React.FC = () => {
                 {childIsCheckable ? (
                   !childCompleted ? (
                     <button
-                      onClick={() => completeHabitChild(child.id, child.plannedTimeMinutes, selectedDate)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleQuickCompleteChildHabit(child);
+                      }}
                       className="w-5 h-5 rounded border flex items-center justify-center border-white/30 hover:border-white/50"
                     >
                       <Check className="w-3 h-3" />
                     </button>
                   ) : (
                     <button
-                      onClick={() => uncompleteHabitChild(child.id, selectedDate)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleQuickUncompleteChildHabit(child);
+                      }}
                       className="w-5 h-5 rounded border flex items-center justify-center bg-mystic-gold border-mystic-gold hover:bg-mystic-gold/80"
                       title="Desmarcar"
                     >
@@ -1978,7 +2025,10 @@ export const Ciclos: React.FC = () => {
                       <div className="flex items-start gap-3">
                         {!completed ? (
                           <button
-                            onClick={() => handleQuickCompleteHabit(sequenceHabit)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleQuickCompleteHabit(sequenceHabit);
+                            }}
                             className="w-8 h-8 rounded-lg bg-white/10 hover:bg-mystic-gold/20 flex items-center justify-center flex-shrink-0 transition-colors"
                             title="Marcar como completo"
                           >
@@ -1986,7 +2036,10 @@ export const Ciclos: React.FC = () => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => uncompleteHabit(sequenceHabit.id, selectedDate)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleQuickUncompleteHabit(sequenceHabit);
+                            }}
                             className="w-8 h-8 rounded-lg bg-mystic-gold/20 hover:bg-mystic-gold/30 flex items-center justify-center flex-shrink-0"
                             title="Desmarcar"
                           >
@@ -2281,7 +2334,10 @@ export const Ciclos: React.FC = () => {
                     <div className="flex items-start gap-3">
                       {!completed && (
                         <button
-                          onClick={() => handleQuickCompleteHabit(habit)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleQuickCompleteHabit(habit);
+                          }}
                           className="w-8 h-8 rounded-lg bg-white/10 hover:bg-mystic-gold/20 flex items-center justify-center flex-shrink-0 transition-colors"
                           title="Marcar como completo"
                         >
@@ -2290,7 +2346,10 @@ export const Ciclos: React.FC = () => {
                       )}
                       {completed && (
                         <button
-                          onClick={() => uncompleteHabit(habit.id, selectedDate)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleQuickUncompleteHabit(habit);
+                          }}
                           className="w-8 h-8 rounded-lg bg-mystic-gold/20 hover:bg-mystic-gold/30 flex items-center justify-center flex-shrink-0"
                           title="Desmarcar"
                         >
