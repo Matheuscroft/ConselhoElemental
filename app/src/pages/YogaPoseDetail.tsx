@@ -6,7 +6,11 @@ import { AppLayout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getPoseById } from '@/constants/yoga-poses';
-import { getYogaIllustrationPrompts, getYogaIllustrationSrc } from '@/constants/yoga-image-prompts';
+import {
+  getYogaIllustrationPrompts,
+  getYogaIllustrationFullSrc,
+  getYogaIllustrationFallbackSrc,
+} from '@/constants/yoga-image-prompts';
 
 export const YogaPoseDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -106,24 +110,29 @@ export const YogaPoseDetail: React.FC = () => {
         </div>
 
         <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/30 h-56 sm:h-64 relative">
-          <img
-            src={getYogaIllustrationSrc(pose.id)}
-            alt={`Ilustração da postura ${pose.namePt}`}
-            className="w-full h-full object-cover"
-            onError={(event) => {
-              const img = event.currentTarget;
-              img.style.display = 'none';
-              const fallback = img.nextElementSibling as HTMLDivElement | null;
-              if (fallback) {
-                fallback.style.display = 'flex';
-              }
-            }}
-          />
+          <picture>
+            <source srcSet={getYogaIllustrationFullSrc(pose.id)} type="image/webp" />
+            <img
+              src={getYogaIllustrationFallbackSrc(pose.id)}
+              alt={`Ilustração da postura ${pose.namePt}`}
+              className="w-full h-full object-cover"
+              loading="eager"
+              decoding="async"
+              onError={(event) => {
+                const img = event.currentTarget;
+                img.style.display = 'none';
+                const fallback = img.parentElement?.nextElementSibling as HTMLDivElement | null;
+                if (fallback) {
+                  fallback.style.display = 'flex';
+                }
+              }}
+            />
+          </picture>
           <div className="hidden absolute inset-0 items-center justify-center bg-gradient-to-br from-mystic-arcane/30 via-mystic-purple/20 to-mystic-gold/10 px-4">
             <div className="text-center">
               <Image className="w-8 h-8 text-mystic-gold/85 mx-auto mb-2" />
               <p className="text-sm text-white/70">Ilustração ainda não adicionada</p>
-              <p className="text-xs text-white/55 mt-1">Use: public/yoga/poses/{pose.id}.png</p>
+              <p className="text-xs text-white/55 mt-1">Use: public/yoga/poses/full/{pose.id}.webp</p>
             </div>
           </div>
         </div>

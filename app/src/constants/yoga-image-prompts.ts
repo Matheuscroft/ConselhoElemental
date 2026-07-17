@@ -73,7 +73,15 @@ export const YOGA_ILLUSTRATION_PROMPTS_BY_ID: Record<string, { prompt: string; n
     ]),
   );
 
-export const getYogaIllustrationSrc = (poseId: string): string => {
+export const getYogaIllustrationThumbSrc = (poseId: string): string => {
+  return `/yoga/poses/thumb/${poseId}.webp`;
+};
+
+export const getYogaIllustrationFullSrc = (poseId: string): string => {
+  return `/yoga/poses/full/${poseId}.webp`;
+};
+
+export const getYogaIllustrationFallbackSrc = (poseId: string): string => {
   return `/yoga/poses/${poseId}.png`;
 };
 

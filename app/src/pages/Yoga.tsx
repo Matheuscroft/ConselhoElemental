@@ -6,7 +6,10 @@ import { AppLayout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { YOGA_POSES, GROUP_ORDER } from '@/constants/yoga-poses';
-import { getYogaIllustrationSrc } from '@/constants/yoga-image-prompts';
+import {
+  getYogaIllustrationThumbSrc,
+  getYogaIllustrationFallbackSrc,
+} from '@/constants/yoga-image-prompts';
 
 export const Yoga: React.FC = () => {
   const navigate = useNavigate();
@@ -81,24 +84,28 @@ export const Yoga: React.FC = () => {
                   className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left transition-all hover:border-mystic-gold/40 hover:bg-white/8 cursor-pointer group"
                 >
                   <div className="mb-2 rounded-lg overflow-hidden border border-white/10 bg-black/30 h-24 relative">
-                    <img
-                      src={getYogaIllustrationSrc(pose.id)}
-                      alt={`Ilustração da postura ${pose.namePt}`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(event) => {
-                        const img = event.currentTarget;
-                        img.style.display = 'none';
-                        const fallback = img.nextElementSibling as HTMLDivElement | null;
-                        if (fallback) {
-                          fallback.style.display = 'flex';
-                        }
-                      }}
-                    />
+                    <picture>
+                      <source srcSet={getYogaIllustrationThumbSrc(pose.id)} type="image/webp" />
+                      <img
+                        src={getYogaIllustrationFallbackSrc(pose.id)}
+                        alt={`Ilustração da postura ${pose.namePt}`}
+                        className="w-full h-full object-cover object-[50%_18%]"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(event) => {
+                          const img = event.currentTarget;
+                          img.style.display = 'none';
+                          const fallback = img.parentElement?.nextElementSibling as HTMLDivElement | null;
+                          if (fallback) {
+                            fallback.style.display = 'flex';
+                          }
+                        }}
+                      />
+                    </picture>
                     <div className="hidden absolute inset-0 items-center justify-center bg-gradient-to-br from-mystic-arcane/25 via-mystic-purple/20 to-mystic-gold/10">
                       <div className="text-center px-3">
                         <Image className="w-5 h-5 text-mystic-gold/80 mx-auto mb-1" />
-                        <p className="text-[10px] text-white/65">Adicione em public/yoga/poses/{pose.id}.png</p>
+                        <p className="text-[10px] text-white/65">Adicione em public/yoga/poses/thumb/{pose.id}.webp</p>
                       </div>
                     </div>
                   </div>
