@@ -33,6 +33,9 @@ let unsubscribeAppStoreListener: (() => void) | null = null;
 let cloudSyncTimer: ReturnType<typeof setTimeout> | null = null;
 let currentFingerprint = '';
 let isHydratingCloudSnapshot = false;
+let isRefreshingFromCloud = false;
+let onVisibilityChangeHandler: (() => void) | null = null;
+let onWindowFocusHandler: (() => void) | null = null;
 const shouldForceBootstrapCloudSync =
   (import.meta.env.VITE_FORCE_BOOTSTRAP_CLOUD_SYNC as string | undefined) === 'true';
 
@@ -144,6 +147,16 @@ const stopCloudAutoSync = () => {
     cloudSyncTimer = null;
   }
 
+  if (onVisibilityChangeHandler) {
+    document.removeEventListener('visibilitychange', onVisibilityChangeHandler);
+    onVisibilityChangeHandler = null;
+  }
+
+  if (onWindowFocusHandler) {
+    window.removeEventListener('focus', onWindowFocusHandler);
+    onWindowFocusHandler = null;
+  }
+
   currentFingerprint = '';
 };
 
@@ -152,6 +165,42 @@ const startCloudAutoSync = (
 ) => {
   stopCloudAutoSync();
   currentFingerprint = getCloudSyncFingerprint();
+
+  const flushPendingChanges = async () => {
+    if (isHydratingCloudSnapshot || isRefreshingFromCloud) return;
+
+    const nextFingerprint = getCloudSyncFingerprint();
+    if (nextFingerprint === currentFingerprint) return;
+
+    if (cloudSyncTimer) {
+      clearTimeout(cloudSyncTimer);
+      cloudSyncTimer = null;
+    }
+
+    currentFingerprint = nextFingerprint;
+    await persistAppStoreToCloud(userId);
+  };
+
+  const refreshFromCloudIfIdle = async () => {
+    if (isHydratingCloudSnapshot || isRefreshingFromCloud) return;
+    if (cloudSyncTimer) return;
+
+    try {
+      isRefreshingFromCloud = true;
+      isHydratingCloudSnapshot = true;
+      await hydrateAppStoreFromCloud(userId);
+      currentFingerprint = getCloudSyncFingerprint();
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(error.message);
+      } else {
+        console.error('Falha ao atualizar snapshot da nuvem.');
+      }
+    } finally {
+      isHydratingCloudSnapshot = false;
+      isRefreshingFromCloud = false;
+    }
+  };
 
   unsubscribeAppStoreListener = useAppStore.subscribe(() => {
     if (isHydratingCloudSnapshot) return;
@@ -181,6 +230,24 @@ const startCloudAutoSync = (
       }
     }, 900);
   });
+
+  onVisibilityChangeHandler = () => {
+    if (document.visibilityState === 'hidden') {
+      void flushPendingChanges();
+      return;
+    }
+
+    if (document.visibilityState === 'visible') {
+      void refreshFromCloudIfIdle();
+    }
+  };
+
+  onWindowFocusHandler = () => {
+    void refreshFromCloudIfIdle();
+  };
+
+  document.addEventListener('visibilitychange', onVisibilityChangeHandler);
+  window.addEventListener('focus', onWindowFocusHandler);
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({

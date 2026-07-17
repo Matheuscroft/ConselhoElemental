@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -172,9 +172,15 @@ export const Ciclos: React.FC = () => {
   const [dragOverPromoteParentId, setDragOverPromoteParentId] = useState<string | null>(null);
   const dayShortcutsContainerRef = useRef<HTMLDivElement | null>(null);
   const selectedDayButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [userLatitude, setUserLatitude] = useState<number | null>(null);
+  const [userLatitude, setUserLatitude] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const cachedLatitude = localStorage.getItem('ce:user-latitude');
+    if (!cachedLatitude) return null;
+
+    const parsed = Number(cachedLatitude);
+    return Number.isNaN(parsed) ? null : parsed;
+  });
   const [executionTaskStartCycleSeconds, setExecutionTaskStartCycleSeconds] = useState<number | null>(null);
-  const [executionTaskElapsedSeconds, setExecutionTaskElapsedSeconds] = useState(0);
   const [executionTimings, setExecutionTimings] = useState<Record<string, ExecutionTiming>>({});
   const executionEarnedPointsRef = useRef(0);
   const completionActionLockRef = useRef<Record<string, number>>({});
@@ -207,14 +213,6 @@ export const Ciclos: React.FC = () => {
   }, [selectedDate, visibleDaysCenterDate]);
 
   useEffect(() => {
-    const cachedLatitude = localStorage.getItem('ce:user-latitude');
-    if (cachedLatitude) {
-      const parsed = Number(cachedLatitude);
-      if (!Number.isNaN(parsed)) {
-        setUserLatitude(parsed);
-      }
-    }
-
     if (!navigator.geolocation) {
       return;
     }
@@ -233,17 +231,6 @@ export const Ciclos: React.FC = () => {
       }
     );
   }, []);
-
-  useEffect(() => {
-    if (!showExecutionMode || executionTaskStartCycleSeconds == null) {
-      setExecutionTaskElapsedSeconds(0);
-      return;
-    }
-
-    setExecutionTaskElapsedSeconds(
-      Math.max(0, timer.elapsedSeconds - executionTaskStartCycleSeconds)
-    );
-  }, [showExecutionMode, executionTaskStartCycleSeconds, timer.elapsedSeconds]);
 
   const handleQuickCreateCycle = () => {
     if (!quickCreateCycleName.trim()) return;
@@ -498,18 +485,18 @@ export const Ciclos: React.FC = () => {
   const habitsForDate = getHabitsForDate(selectedDate);
 
   // Check if habit is completed for selected date
-  const isHabitCompleted = (habit: Habit) => {
+  const isHabitCompleted = useCallback((habit: Habit) => {
     return habit.completions.some(
       (c) => new Date(c.completionDate).toDateString() === selectedDate.toDateString()
     );
-  };
+  }, [selectedDate]);
 
   // Get completion for date
-  const getCompletionForDate = (habit: Habit) => {
+  const getCompletionForDate = useCallback((habit: Habit) => {
     return habit.completions.find(
       (c) => new Date(c.completionDate).toDateString() === selectedDate.toDateString()
     );
-  };
+  }, [selectedDate]);
 
   // Navigate days
   const goToPreviousDay = () => {
@@ -554,18 +541,15 @@ export const Ciclos: React.FC = () => {
   const beginExecutionTaskTracking = (task: Habit | null, startCycleSeconds?: number) => {
     if (!task || isHabitCompleted(task)) {
       setExecutionTaskStartCycleSeconds(null);
-      setExecutionTaskElapsedSeconds(0);
       return;
     }
 
     const snapshot = startCycleSeconds ?? timer.elapsedSeconds;
     setExecutionTaskStartCycleSeconds(snapshot);
-    setExecutionTaskElapsedSeconds(0);
   };
 
   const resetExecutionTracking = () => {
     setExecutionTaskStartCycleSeconds(null);
-    setExecutionTaskElapsedSeconds(0);
     setExecutionTimings({});
     executionEarnedPointsRef.current = 0;
   };
@@ -715,9 +699,6 @@ export const Ciclos: React.FC = () => {
         },
       }));
 
-      // Reset imediato do contador da tarefa para evitar visual "preso" até a próxima render.
-      setExecutionTaskElapsedSeconds(0);
-
       predictedCompletedIds.add(currentTask.id);
     }
 
@@ -780,22 +761,19 @@ export const Ciclos: React.FC = () => {
   // Complete habit directly without opening timer.
   const withCompletionLock = (habitId: string, action: () => void) => {
     const lockKey = `${habitId}-${normalizeDate(selectedDate).toDateString()}`;
-    const now = Date.now();
-    const lockedUntil = completionActionLockRef.current[lockKey] || 0;
+    const isLocked = (completionActionLockRef.current[lockKey] || 0) > 0;
 
-    if (lockedUntil > now) {
+    if (isLocked) {
       return;
     }
 
-    completionActionLockRef.current[lockKey] = now + 700;
+    completionActionLockRef.current[lockKey] = 1;
 
     action();
 
     setTimeout(() => {
-      if ((completionActionLockRef.current[lockKey] || 0) <= now + 700) {
-        delete completionActionLockRef.current[lockKey];
-      }
-    }, 800);
+      delete completionActionLockRef.current[lockKey];
+    }, 700);
   };
 
   const handleQuickCompleteHabit = (habit: Habit) => {
@@ -1058,14 +1036,13 @@ export const Ciclos: React.FC = () => {
         return true;
       });
   }, [habitsForDate]);
-  const visibleSequenceIdsForDate = new Set(
+  const visibleSequenceIdsForDate = useMemo(() => new Set(
     habitsForDate
       .map((habit) => habit.controlledBySequenceId)
       .filter((sequenceId): sequenceId is string => Boolean(sequenceId))
-  );
-  const visibleSequenceIdsKey = Array.from(visibleSequenceIdsForDate).sort().join('|');
+  ), [habitsForDate]);
 
-  const mixedCards = useMemo(() => {
+  const mixedCards = (() => {
     const habitCards = standaloneHabitsForDate.map((habit) => ({
       type: 'habit' as const,
       id: habit.id,
@@ -1087,7 +1064,7 @@ export const Ciclos: React.FC = () => {
       if (a.type === b.type) return a.id.localeCompare(b.id);
       return a.type === 'sequence' ? -1 : 1;
     });
-  }, [standaloneHabitsForDate, sequenceSummaries, visibleSequenceIdsKey]);
+  })();
 
   const isMixedCardCompleted = (card: (typeof mixedCards)[number]): boolean => {
     if (card.type === 'habit') {
@@ -1099,13 +1076,12 @@ export const Ciclos: React.FC = () => {
     return isHabitCompleted(currentHabit);
   };
 
-  const displayedMixedCards = useMemo(() => {
-    if (cyclesViewMode === 'ordered') return mixedCards;
-
-    const pending = mixedCards.filter((card) => !isMixedCardCompleted(card));
-    const completed = mixedCards.filter((card) => isMixedCardCompleted(card));
-    return [...pending, ...completed];
-  }, [mixedCards, cyclesViewMode, selectedDate]);
+  const displayedMixedCards = cyclesViewMode === 'ordered'
+    ? mixedCards
+    : [
+      ...mixedCards.filter((card) => !isMixedCardCompleted(card)),
+      ...mixedCards.filter((card) => isMixedCardCompleted(card)),
+    ];
 
   const allAreasForEdit = useMemo(() => {
     const elementOrder = ['terra', 'fogo', 'agua', 'ar'] as const;
@@ -1220,6 +1196,10 @@ export const Ciclos: React.FC = () => {
   const executionProgressPercent = executionActionableChildren.length > 0
     ? (executionCompletedCount / executionActionableChildren.length) * 100
     : 0;
+  const executionTaskElapsedSeconds = useMemo(() => {
+    if (!showExecutionMode || executionTaskStartCycleSeconds == null) return 0;
+    return Math.max(0, timer.elapsedSeconds - executionTaskStartCycleSeconds);
+  }, [showExecutionMode, executionTaskStartCycleSeconds, timer.elapsedSeconds]);
 
   useEffect(() => {
     if (!showExecutionMode || executionActionableChildren.length === 0) return;
@@ -1252,6 +1232,9 @@ export const Ciclos: React.FC = () => {
     executionActionableChildren,
     executionCurrentIndex,
     timer.elapsedSeconds,
+    beginExecutionTaskTracking,
+    finalizeExecutionCycle,
+    isHabitCompleted,
   ]);
 
   // Moon phase and season
@@ -1330,7 +1313,7 @@ export const Ciclos: React.FC = () => {
             <Badge 
               key={areaId}
               variant="outline"
-              className="text-[9px] truncate max-w-xs"
+              className="text-[9px] truncate max-w-full sm:max-w-xs"
               style={{ 
                 backgroundColor: `${aggArea.color}10`, 
                 borderColor: `${aggArea.color}50`,
@@ -1351,7 +1334,7 @@ export const Ciclos: React.FC = () => {
           <Badge
             key="own-area"
             variant="outline"
-            className="text-[9px] truncate max-w-xs"
+            className="text-[9px] truncate max-w-full sm:max-w-xs"
             style={{
               backgroundColor: `${(childArea?.color || '#808080')}20`,
               borderColor: `${(childArea?.color || '#808080')}80`,
@@ -1856,21 +1839,21 @@ export const Ciclos: React.FC = () => {
                 key={item.sequence.id}
                 className="rounded-xl border border-white/10 bg-black/20 px-3 py-2"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium">{item.sequence.name}</p>
+                      <p className="text-sm font-medium break-words">{item.sequence.name}</p>
                     </div>
-                    <p className="text-xs text-white/60">Atual: {item.currentHabitName}</p>
+                    <p className="text-xs text-white/60 break-words">Atual: {item.currentHabitName}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-white/5 text-[10px]">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <Badge variant="outline" className="bg-white/5 text-[10px] shrink-0">
                       Posição {item.currentPositionLabel}
                     </Badge>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 px-2 text-[10px]"
+                      className="h-7 px-2 text-[10px] shrink-0"
                       onClick={() => toggleCycleSequenceActive(item.sequence.id)}
                     >
                       {item.sequence.isActive ? 'Pausar' : 'Retomar'}
@@ -1878,7 +1861,7 @@ export const Ciclos: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 px-2 text-[10px]"
+                      className="h-7 px-2 text-[10px] shrink-0"
                       onClick={() => resetCycleSequenceToStart(item.sequence.id)}
                     >
                       Reiniciar
@@ -1886,7 +1869,7 @@ export const Ciclos: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 px-2 text-[10px]"
+                      className="h-7 px-2 text-[10px] shrink-0"
                       onClick={() => setSelectedSequenceId(item.sequence.id)}
                     >
                       Detalhes
@@ -2128,14 +2111,14 @@ export const Ciclos: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px]">
-                            <Badge variant="outline" className="bg-mystic-arcane/20 border-mystic-arcane/40 text-mystic-gold text-[10px] truncate">
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] min-w-0">
+                            <Badge variant="outline" className="bg-mystic-arcane/20 border-mystic-arcane/40 text-mystic-gold text-[10px] truncate max-w-full sm:max-w-xs">
                               Sequência: {item.sequence.name} ({item.currentPositionLabel})
                             </Badge>
                             {seqAreaDisplayName && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] truncate max-w-xs"
+                                className="text-[10px] truncate max-w-full sm:max-w-xs"
                                 style={{
                                   backgroundColor: `${(seqArea?.color || '#808080')}20`,
                                   borderColor: `${(seqArea?.color || '#808080')}80`,
@@ -2461,7 +2444,7 @@ export const Ciclos: React.FC = () => {
                         <div className="mt-2 flex items-start justify-between gap-2 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                             {habit.controlledBySequenceId && (
-                              <Badge variant="outline" className="bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold text-[10px] truncate">
+                              <Badge variant="outline" className="bg-mystic-gold/10 border-mystic-gold/40 text-mystic-gold text-[10px] truncate max-w-full sm:max-w-xs">
                                 Em sequência
                               </Badge>
                             )}
@@ -2469,7 +2452,7 @@ export const Ciclos: React.FC = () => {
                             {primaryAreaBadgeLabel && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] truncate max-w-xs"
+                                className="text-[10px] truncate max-w-[calc(100vw-13rem)] sm:max-w-xs"
                                 style={{
                                   backgroundColor: `${(area?.color || element.color)}15`,
                                   borderColor: `${(area?.color || element.color)}40`,
@@ -2491,7 +2474,7 @@ export const Ciclos: React.FC = () => {
                                 <Badge 
                                   key={areaId}
                                   variant="outline"
-                                  className="text-[10px] truncate max-w-xs"
+                                  className="text-[10px] truncate max-w-[calc(100vw-13rem)] sm:max-w-xs"
                                   style={{ 
                                     backgroundColor: `${aggArea.color}10`, 
                                     borderColor: `${aggArea.color}50`,

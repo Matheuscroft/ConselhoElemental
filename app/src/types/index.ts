@@ -234,6 +234,12 @@ export interface HabitCompletion {
   completionDate: Date;
   timeSpentMinutes: number;
   scoreEarned: number;
+  plannedScoreAtCompletion?: number;
+  executedScore?: number;
+  actualEffortLevel?: number;
+  presenceBonusApplied?: number;
+  timeMultiplierApplied?: number;
+  formulaVersion?: string;
   startedAtCycleSeconds?: number;
   endedAtCycleSeconds?: number;
 }

@@ -166,6 +166,22 @@ const getHabitBasePoints = (habit: Habit): number => {
   return points;
 };
 
+const calculateHabitPlannedScore = (habit: Habit): number => {
+  const basePoints = getHabitBasePoints(habit);
+  if (basePoints <= 0) return 0;
+
+  const plannedMinutes = getHabitPlannedMinutes(habit);
+  return Math.max(0, Math.round(calculateTaskScore(basePoints, 1, plannedMinutes, true)));
+};
+
+const calculateHabitExecutedScore = (habit: Habit, timeSpentMinutes: number): number => {
+  const basePoints = getHabitBasePoints(habit);
+  if (basePoints <= 0) return 0;
+
+  const minutes = sanitizeNonNegativeNumber(timeSpentMinutes) ?? 0;
+  return Math.max(0, Math.round(calculateTaskScore(basePoints, 1, minutes, true)));
+};
+
 const calculateCompletedDescendantsScoreForDate = (
   habits: Habit[],
   completionDate: Date | string | number
@@ -211,7 +227,12 @@ const collectHabitScoresAndCompletionDays = (habits: Habit[]) => {
   const walk = (habit: Habit, isRoot: boolean) => {
     habit.completions.forEach((completion) => {
       if (isRoot) {
-        totalHabitScore += calculateRootHabitScoreForDate(habit, completion.completionDate);
+        const completionScore = sanitizeNonNegativeNumber(completion.executedScore)
+          ?? sanitizeNonNegativeNumber(completion.scoreEarned);
+
+        totalHabitScore += completionScore != null
+          ? completionScore
+          : calculateRootHabitScoreForDate(habit, completion.completionDate);
       }
 
       const completionDay = toDayStamp(completion.completionDate);
@@ -2828,6 +2849,9 @@ export const useAppStore = create<AppState>()(
           return 0;
         }
 
+        const targetPlannedScore = calculateHabitPlannedScore(targetHabit);
+        const targetExecutedScore = calculateHabitExecutedScore(targetHabit, timeSpentMinutes);
+
         // Case A (doc): parent with no descendants completed on this date auto-completes all descendants.
         const targetHasDescendants = targetHabit.childHabits.length > 0;
         const completedDescendantsCount = countCompletedDescendantsOnDate(targetHabit);
@@ -2863,8 +2887,12 @@ export const useAppStore = create<AppState>()(
           habitId,
           completionDate: completionAt,
           timeSpentMinutes,
-          // Child completions are bookkeeping only; user score is awarded when parent cycle is completed.
-          scoreEarned: 0,
+          // Score ledger fields: used to keep cross-device/user progress deterministic.
+          scoreEarned: targetExecutedScore,
+          plannedScoreAtCompletion: targetPlannedScore,
+          executedScore: targetExecutedScore,
+          actualEffortLevel: 1,
+          formulaVersion: 'habit-v1',
           startedAtCycleSeconds: metadata?.startedAtCycleSeconds,
           endedAtCycleSeconds: metadata?.endedAtCycleSeconds,
         };
