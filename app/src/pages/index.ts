@@ -16,3 +16,5 @@ export { Dominios } from './Dominios';
 export { DominioDetalhe } from './DominioDetalhe';
 export { Yoga } from './Yoga';
 export { YogaPoseDetail } from './YogaPoseDetail';
+export { Calistenia } from './Calistenia';
+export { CalisteniaExerciseDetail } from './CalisteniaExerciseDetail';

@@ -235,6 +235,12 @@ export const DominioDetalhe: React.FC = () => {
           <div className="grid grid-cols-1 gap-3">
             {visibleSubareas.map((subarea) => {
               const isYogaSubarea = subarea.id === 'sub-saude-yoga';
+              const isCalisteniaSubarea = subarea.id === 'sub-saude-calistenia';
+              const dedicatedPath = isYogaSubarea
+                ? '/dominios/yoga'
+                : isCalisteniaSubarea
+                  ? '/dominios/calistenia'
+                  : null;
               const linkedTaskCount = tasks.filter((task) =>
                 task.subareaPrimaryId === subarea.id ||
                 task.subareaSecondaryId1 === subarea.id ||
@@ -249,21 +255,21 @@ export const DominioDetalhe: React.FC = () => {
                 <div
                   key={subarea.id}
                   className={`rounded-2xl border border-white/10 bg-white/5 p-4 ${
-                    isYogaSubarea ? 'cursor-pointer hover:border-mystic-gold/40 hover:bg-mystic-gold/5 transition-colors' : ''
+                    dedicatedPath ? 'cursor-pointer hover:border-mystic-gold/40 hover:bg-mystic-gold/5 transition-colors' : ''
                   }`}
                   onClick={() => {
-                    if (!isYogaSubarea) return;
-                    navigate('/dominios/yoga');
+                    if (!dedicatedPath) return;
+                    navigate(dedicatedPath);
                   }}
                   onKeyDown={(event) => {
-                    if (!isYogaSubarea) return;
+                    if (!dedicatedPath) return;
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      navigate('/dominios/yoga');
+                      navigate(dedicatedPath);
                     }
                   }}
-                  role={isYogaSubarea ? 'button' : undefined}
-                  tabIndex={isYogaSubarea ? 0 : undefined}
+                  role={dedicatedPath ? 'button' : undefined}
+                  tabIndex={dedicatedPath ? 0 : undefined}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -274,6 +280,11 @@ export const DominioDetalhe: React.FC = () => {
                       {isYogaSubarea && (
                         <p className="text-[11px] text-mystic-gold mt-1">
                           Toque para abrir a página dedicada de Yoga
+                        </p>
+                      )}
+                      {isCalisteniaSubarea && (
+                        <p className="text-[11px] text-mystic-gold mt-1">
+                          Toque para abrir a página dedicada de Calistenia
                         </p>
                       )}
                     </div>

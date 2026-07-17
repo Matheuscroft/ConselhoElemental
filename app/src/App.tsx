@@ -24,6 +24,8 @@ import {
   DominioDetalhe,
   Yoga,
   YogaPoseDetail,
+  Calistenia,
+  CalisteniaExerciseDetail,
 } from '@/pages';
 import './App.css';
 
@@ -129,6 +131,8 @@ function App() {
             <Route path="/dominios" element={<Dominios />} />
             <Route path="/dominios/yoga" element={<Yoga />} />
             <Route path="/dominios/yoga/:poseId" element={<YogaPoseDetail />} />
+            <Route path="/dominios/calistenia" element={<Calistenia />} />
+            <Route path="/dominios/calistenia/:exerciseId" element={<CalisteniaExerciseDetail />} />
             <Route path="/dominios/:areaId" element={<DominioDetalhe />} />
           </Route>
           
