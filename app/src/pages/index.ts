@@ -14,3 +14,5 @@ export { Forja } from './Forja';
 export { Pilares } from './Pilares';
 export { Dominios } from './Dominios';
 export { DominioDetalhe } from './DominioDetalhe';
+export { Yoga } from './Yoga';
+export { YogaPoseDetail } from './YogaPoseDetail';

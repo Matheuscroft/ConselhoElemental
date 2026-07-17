@@ -234,6 +234,7 @@ export const DominioDetalhe: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 gap-3">
             {visibleSubareas.map((subarea) => {
+              const isYogaSubarea = subarea.id === 'sub-saude-yoga';
               const linkedTaskCount = tasks.filter((task) =>
                 task.subareaPrimaryId === subarea.id ||
                 task.subareaSecondaryId1 === subarea.id ||
@@ -247,7 +248,22 @@ export const DominioDetalhe: React.FC = () => {
               return (
                 <div
                   key={subarea.id}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                  className={`rounded-2xl border border-white/10 bg-white/5 p-4 ${
+                    isYogaSubarea ? 'cursor-pointer hover:border-mystic-gold/40 hover:bg-mystic-gold/5 transition-colors' : ''
+                  }`}
+                  onClick={() => {
+                    if (!isYogaSubarea) return;
+                    navigate('/dominios/yoga');
+                  }}
+                  onKeyDown={(event) => {
+                    if (!isYogaSubarea) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate('/dominios/yoga');
+                    }
+                  }}
+                  role={isYogaSubarea ? 'button' : undefined}
+                  tabIndex={isYogaSubarea ? 0 : undefined}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -255,12 +271,20 @@ export const DominioDetalhe: React.FC = () => {
                       <p className="text-xs text-white/50">
                         {linkedTaskCount} rituais • {linkedHabitCount} ciclos
                       </p>
+                      {isYogaSubarea && (
+                        <p className="text-[11px] text-mystic-gold mt-1">
+                          Toque para abrir a página dedicada de Yoga
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {subarea.isCustom && (
                         <button
                           type="button"
-                          onClick={() => removeCustomSubarea(area.id, subarea.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeCustomSubarea(area.id, subarea.id);
+                          }}
                           className="p-2 rounded-lg border border-red-400/30 text-red-200 hover:bg-red-500/10"
                           title="Remover subarea personalizada"
                         >
@@ -269,7 +293,10 @@ export const DominioDetalhe: React.FC = () => {
                       )}
                       <button
                         type="button"
-                        onClick={() => handleToggleSubarea(subarea.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleToggleSubarea(subarea.id);
+                        }}
                         className="px-3 py-1.5 rounded-lg border border-white/20 text-xs text-white/80 hover:bg-white/10"
                       >
                         {activeSubareaSet.has(subarea.id) ? 'Desvincular' : 'Vincular'}
