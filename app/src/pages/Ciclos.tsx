@@ -2452,7 +2452,7 @@ export const Ciclos: React.FC = () => {
                             {primaryAreaBadgeLabel && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] truncate max-w-[calc(100vw-13rem)] sm:max-w-xs"
+                                className="text-[10px] min-w-0 max-w-[calc(100vw-13rem)] sm:max-w-xs"
                                 style={{
                                   backgroundColor: `${(area?.color || element.color)}15`,
                                   borderColor: `${(area?.color || element.color)}40`,
@@ -2460,7 +2460,9 @@ export const Ciclos: React.FC = () => {
                                 }}
                                 title={primaryAreaBadgeLabel}
                               >
-                                {primaryAreaBadgeLabel}
+                                <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                  {primaryAreaBadgeLabel}
+                                </span>
                               </Badge>
                             )}
 
@@ -2474,7 +2476,7 @@ export const Ciclos: React.FC = () => {
                                 <Badge 
                                   key={areaId}
                                   variant="outline"
-                                  className="text-[10px] truncate max-w-[calc(100vw-13rem)] sm:max-w-xs"
+                                  className="text-[10px] min-w-0 max-w-[calc(100vw-13rem)] sm:max-w-xs"
                                   style={{ 
                                     backgroundColor: `${aggArea.color}10`, 
                                     borderColor: `${aggArea.color}50`,
@@ -2482,7 +2484,9 @@ export const Ciclos: React.FC = () => {
                                   }}
                                   title={badgeLabel}
                                 >
-                                  {badgeLabel}
+                                  <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                    {badgeLabel}
+                                  </span>
                                 </Badge>
                               );
                             })}
