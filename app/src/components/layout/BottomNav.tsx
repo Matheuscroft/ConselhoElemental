@@ -25,6 +25,7 @@ const allRoutes = [
   { icon: '🗺️', label: 'Jornadas', route: '/jornadas' },
   { icon: '🏗️', label: 'Grandes Obras', route: '/grandes-obras' },
   { icon: '🔨', label: 'Forja', route: '/forja' },
+  { icon: '🗓️', label: 'Temporal', route: '/temporal/semana' },
   { icon: '🔮', label: 'Astrolábio', route: '/astrolabio' },
   { icon: '📖', label: 'Grimório', route: '/grimorio' },
   { icon: '⚡', label: 'Pilares', route: '/pilares' },

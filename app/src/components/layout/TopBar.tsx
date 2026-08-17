@@ -5,6 +5,13 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/appStore';
 import { useAuthStore } from '@/stores/authStore';
 import { isSupabaseAuthEnabled } from '@/lib/supabase';
+import { useWeekStartsOnPreference } from '@/lib/temporal';
+import {
+  getGoogleCalendarConnectUrl,
+  getGoogleCalendarConnection,
+  getGoogleCalendarSyncUrl,
+  isGoogleCalendarIntegrationEnabled,
+} from '@/services/googleCalendarIntegration';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,12 +40,23 @@ export const TopBar: React.FC<TopBarProps> = ({
   const { user, accounts, currentAccountId, createAccount, switchAccount } = useAppStore();
   const {
     user: authUser,
+    session,
     signOut,
     restoreFromLocalBackupToCloud,
     isMigratingLocalData,
   } = useAuthStore();
   const [isAccountModalOpen, setIsAccountModalOpen] = React.useState(false);
   const [newAccountName, setNewAccountName] = React.useState('');
+  const [googleStatus, setGoogleStatus] = React.useState<
+    'idle' | 'loading' | 'connected' | 'disconnected' | 'unavailable' | 'error'
+  >('idle');
+  const [isGoogleSyncing, setIsGoogleSyncing] = React.useState(false);
+  const [isGoogleConnecting, setIsGoogleConnecting] = React.useState(false);
+  const [googleEmail, setGoogleEmail] = React.useState<string | null>(null);
+  const [googleStatusMessage, setGoogleStatusMessage] = React.useState<string>('');
+  const { weekStartsOn, setWeekStartsOn } = useWeekStartsOnPreference();
+  const googleConnectUrl = React.useMemo(() => getGoogleCalendarConnectUrl(), []);
+  const googleSyncUrl = React.useMemo(() => getGoogleCalendarSyncUrl(), []);
 
   const activeAccount = React.useMemo(
     () => accounts.find((account) => account.id === currentAccountId) || null,
@@ -61,10 +79,111 @@ export const TopBar: React.FC<TopBarProps> = ({
       '/invocar': 'Invocar',
       '/dominios': 'Domínios',
       '/pilares': 'Pilares Elementais',
+      '/temporal/semana': 'Temporal - Semana',
+      '/temporal/mes': 'Temporal - Mês',
+      '/temporal/ano': 'Temporal - Ano',
+      '/temporal/calendario': 'Temporal - Calendário',
     };
     
     return titles[path] || 'Conselho Elemental';
   };
+
+  React.useEffect(() => {
+    if (!isAccountModalOpen) return;
+
+    const loadGoogleConnection = async () => {
+      if (!isGoogleCalendarIntegrationEnabled()) {
+        setGoogleStatus('unavailable');
+        setGoogleStatusMessage('Habilite Supabase Auth para conectar Google Agenda.');
+        setGoogleEmail(null);
+        return;
+      }
+
+      setGoogleStatus('loading');
+      setGoogleStatusMessage('');
+
+      try {
+        const connection = await getGoogleCalendarConnection();
+        if (connection?.is_active) {
+          setGoogleStatus('connected');
+          setGoogleEmail(connection.google_email ?? null);
+          setGoogleStatusMessage('Conexao ativa.');
+          return;
+        }
+
+        setGoogleStatus('disconnected');
+        setGoogleEmail(null);
+        setGoogleStatusMessage('Nenhuma conexao ativa encontrada.');
+      } catch (error) {
+        setGoogleStatus('error');
+        setGoogleEmail(null);
+        setGoogleStatusMessage(
+          error instanceof Error ? error.message : 'Erro ao verificar conexao Google Agenda.'
+        );
+      }
+    };
+
+    void loadGoogleConnection();
+  }, [isAccountModalOpen]);
+
+  const handleGoogleConnect = React.useCallback(async () => {
+    if (!googleConnectUrl || !session?.access_token) return;
+
+    setIsGoogleConnecting(true);
+    setGoogleStatusMessage('Iniciando OAuth Google...');
+
+    try {
+      const response = await fetch(googleConnectUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = (await response.json()) as { authUrl?: string; error?: string };
+      if (!response.ok || !payload.authUrl) {
+        throw new Error(payload.error || 'Falha ao iniciar conexão Google');
+      }
+
+      window.open(payload.authUrl, '_blank', 'noopener,noreferrer');
+      setGoogleStatusMessage('Consentimento aberto em nova aba. Complete o login e depois sincronize.');
+    } catch (error) {
+      setGoogleStatusMessage(error instanceof Error ? error.message : 'Erro ao iniciar conexão Google');
+      setGoogleStatus('error');
+    } finally {
+      setIsGoogleConnecting(false);
+    }
+  }, [googleConnectUrl, session?.access_token]);
+
+  const handleGoogleSync = React.useCallback(async () => {
+    if (!googleSyncUrl || !session?.access_token) return;
+
+    setIsGoogleSyncing(true);
+    setGoogleStatusMessage('Sincronizando Google Agenda...');
+
+    try {
+      const response = await fetch(googleSyncUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const payload = (await response.json()) as { syncedCount?: number; error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Falha na sincronização Google Agenda');
+      }
+
+      setGoogleStatus('connected');
+      setGoogleStatusMessage(`Sincronização concluída. ${payload.syncedCount ?? 0} eventos atualizados.`);
+    } catch (error) {
+      setGoogleStatusMessage(error instanceof Error ? error.message : 'Erro na sincronização Google Agenda');
+      setGoogleStatus('error');
+    } finally {
+      setIsGoogleSyncing(false);
+    }
+  }, [googleSyncUrl, session?.access_token]);
 
   return (
     <>
@@ -185,6 +304,66 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </button>
               ))
             )}
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-white/15 p-3">
+            <p className="text-sm font-medium text-white">Início da semana</p>
+            <div className="inline-flex rounded-lg border border-white/20 bg-white/5 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setWeekStartsOn(0)}
+                className={`rounded-md px-2 py-1 ${weekStartsOn === 0 ? 'bg-mystic-gold/20 text-mystic-gold' : 'text-white/70'}`}
+              >
+                Domingo
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeekStartsOn(1)}
+                className={`rounded-md px-2 py-1 ${weekStartsOn === 1 ? 'bg-mystic-gold/20 text-mystic-gold' : 'text-white/70'}`}
+              >
+                Segunda
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-white/15 p-3">
+            <p className="text-sm font-medium text-white">Google Agenda (beta)</p>
+            <p className="text-xs text-white/70">
+              {googleStatus === 'loading' && 'Verificando conexao...'}
+              {googleStatus === 'connected' && (googleEmail ? `Conectado: ${googleEmail}` : 'Conectado')}
+              {googleStatus === 'disconnected' && 'Desconectado'}
+              {googleStatus === 'unavailable' && 'Indisponivel neste ambiente'}
+              {googleStatus === 'error' && 'Falha ao carregar status'}
+              {googleStatus === 'idle' && 'Aguardando verificacao'}
+            </p>
+            {googleStatusMessage ? <p className="text-[11px] text-white/55">{googleStatusMessage}</p> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!googleConnectUrl || !session?.access_token || isGoogleConnecting}
+                onClick={() => {
+                  void handleGoogleConnect();
+                }}
+              >
+                {isGoogleConnecting ? 'Conectando...' : 'Conectar Google'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!googleSyncUrl || !session?.access_token || googleStatus !== 'connected' || isGoogleSyncing}
+                onClick={() => {
+                  void handleGoogleSync();
+                }}
+              >
+                {isGoogleSyncing ? 'Sincronizando...' : 'Sincronizar agora'}
+              </Button>
+            </div>
+            {!googleConnectUrl ? (
+              <p className="text-[11px] text-white/55">
+                Defina VITE_GOOGLE_CALENDAR_CONNECT_URL para ativar o botao de conexao.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-3 rounded-lg border border-white/15 p-3">

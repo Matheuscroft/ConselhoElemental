@@ -26,6 +26,10 @@ import {
   YogaPoseDetail,
   Calistenia,
   CalisteniaExerciseDetail,
+  TemporalWeekPage,
+  TemporalMonthPage,
+  TemporalYearPage,
+  TemporalCalendarPage,
 } from '@/pages';
 import './App.css';
 
@@ -127,6 +131,11 @@ function App() {
             <Route path="/astrolabio" element={<Astrolabio />} />
             <Route path="/lua" element={<Lua />} />
             <Route path="/estacoes" element={<Estacoes />} />
+            <Route path="/temporal" element={<Navigate to="/temporal/semana" replace />} />
+            <Route path="/temporal/semana" element={<TemporalWeekPage />} />
+            <Route path="/temporal/mes" element={<TemporalMonthPage />} />
+            <Route path="/temporal/ano" element={<TemporalYearPage />} />
+            <Route path="/temporal/calendario" element={<TemporalCalendarPage />} />
             <Route path="/pilares" element={<Pilares />} />
             <Route path="/dominios" element={<Dominios />} />
             <Route path="/dominios/yoga" element={<Yoga />} />

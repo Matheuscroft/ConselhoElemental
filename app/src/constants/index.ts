@@ -179,6 +179,117 @@ export function getMoonPhase(date: Date = new Date()): { name: string; icon: str
 }
 
 // ============================================
+// CHUVAS DE METEOROS (PICOS ANUAIS APROXIMADOS)
+// ============================================
+
+type MeteorShowerPeak = {
+  name: string;
+  icon: string;
+};
+
+const METEOR_SHOWER_PEAKS: Array<{ month: number; day: number; name: string }> = [
+  { month: 1, day: 3, name: 'Quadrântidas' },
+  { month: 4, day: 22, name: 'Líridas' },
+  { month: 5, day: 6, name: 'Eta Aquáridas' },
+  { month: 7, day: 30, name: 'Delta Aquáridas do Sul' },
+  { month: 8, day: 12, name: 'Perseidas' },
+  { month: 10, day: 21, name: 'Oriônidas' },
+  { month: 11, day: 17, name: 'Leônidas' },
+  { month: 12, day: 14, name: 'Geminídeas' },
+  { month: 12, day: 22, name: 'Úrsidas' },
+];
+
+export function getMeteorShowerPeak(date: Date = new Date()): MeteorShowerPeak | null {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  const peak = METEOR_SHOWER_PEAKS.find((entry) => entry.month === month && entry.day === day);
+  if (!peak) return null;
+
+  return {
+    name: `Pico da chuva de meteoros: ${peak.name}`,
+    icon: '☄️',
+  };
+}
+
+// ============================================
+// SIGNOS (TROPICAL)
+// ============================================
+
+export type ZodiacSign = {
+  name: string;
+  icon: string;
+};
+
+const ZODIAC_INGRESS_DATES: Array<{ month: number; day: number; name: string; icon: string }> = [
+  { month: 1, day: 20, name: 'Aquário', icon: '♒' },
+  { month: 2, day: 19, name: 'Peixes', icon: '♓' },
+  { month: 3, day: 21, name: 'Áries', icon: '♈' },
+  { month: 4, day: 20, name: 'Touro', icon: '♉' },
+  { month: 5, day: 21, name: 'Gêmeos', icon: '♊' },
+  { month: 6, day: 21, name: 'Câncer', icon: '♋' },
+  { month: 7, day: 23, name: 'Leão', icon: '♌' },
+  { month: 8, day: 23, name: 'Virgem', icon: '♍' },
+  { month: 9, day: 23, name: 'Libra', icon: '♎' },
+  { month: 10, day: 23, name: 'Escorpião', icon: '♏' },
+  { month: 11, day: 22, name: 'Sagitário', icon: '♐' },
+  { month: 12, day: 22, name: 'Capricórnio', icon: '♑' },
+];
+
+export function getZodiacIngress(date: Date = new Date()): ZodiacSign | null {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  const ingress = ZODIAC_INGRESS_DATES.find((entry) => entry.month === month && entry.day === day);
+  if (!ingress) return null;
+
+  return {
+    name: `Entrada do Sol em ${ingress.name}`,
+    icon: ingress.icon,
+  };
+}
+
+export function getZodiacSign(date: Date = new Date()): ZodiacSign {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) {
+    return { name: 'Aquário', icon: '♒' };
+  }
+  if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) {
+    return { name: 'Peixes', icon: '♓' };
+  }
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
+    return { name: 'Áries', icon: '♈' };
+  }
+  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) {
+    return { name: 'Touro', icon: '♉' };
+  }
+  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) {
+    return { name: 'Gêmeos', icon: '♊' };
+  }
+  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) {
+    return { name: 'Câncer', icon: '♋' };
+  }
+  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) {
+    return { name: 'Leão', icon: '♌' };
+  }
+  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) {
+    return { name: 'Virgem', icon: '♍' };
+  }
+  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) {
+    return { name: 'Libra', icon: '♎' };
+  }
+  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) {
+    return { name: 'Escorpião', icon: '♏' };
+  }
+  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) {
+    return { name: 'Sagitário', icon: '♐' };
+  }
+  return { name: 'Capricórnio', icon: '♑' };
+}
+
+// ============================================
 // ESTAÇÕES DO ANO (Hemisfério Sul)
 // ============================================
 
