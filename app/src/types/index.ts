@@ -217,6 +217,17 @@ export interface CycleSequence {
   updatedAt: Date;
 }
 
+export type CommitmentRecurrence = 'ONCE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+export interface Commitment {
+  id: string;
+  title: string;
+  date: Date;
+  recurrence: CommitmentRecurrence;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface SequenceMembership {
   id: string;
   sequenceId: string;

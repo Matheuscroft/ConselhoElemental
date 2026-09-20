@@ -9,6 +9,7 @@ import type {
   Task,
   Habit,
   CycleSequence,
+  Commitment,
   SequenceMembership,
   Project,
   Quest,
@@ -580,6 +581,10 @@ interface AppState {
   // ========== SEQUENCIAS DE CICLOS ==========
   cycleSequences: CycleSequence[];
   sequenceMemberships: SequenceMembership[];
+  commitments: Commitment[];
+  addCommitment: (input: { title: string; date: Date; recurrence?: Commitment['recurrence'] }) => Commitment;
+  updateCommitment: (commitmentId: string, updates: Partial<Omit<Commitment, 'id' | 'createdAt'>>) => void;
+  deleteCommitment: (commitmentId: string) => void;
   createCycleSequence: (input: {
     name: string;
     startDate?: Date;
@@ -666,6 +671,7 @@ interface AccountScopedData {
   habits: Habit[];
   cycleSequences: CycleSequence[];
   sequenceMemberships: SequenceMembership[];
+  commitments: Commitment[];
   projects: Project[];
   quests: Quest[];
   drafts: Draft[];
@@ -690,6 +696,7 @@ const createEmptyAccountData = (profile: AccountProfile): AccountScopedData => (
   habits: [],
   cycleSequences: [],
   sequenceMemberships: [],
+  commitments: [],
   projects: [],
   quests: [],
   drafts: [],
@@ -713,6 +720,7 @@ const captureAccountData = (state: AppState, profile: AccountProfile): AccountSc
   habits: state.habits,
   cycleSequences: state.cycleSequences,
   sequenceMemberships: state.sequenceMemberships,
+  commitments: state.commitments,
   projects: state.projects,
   quests: state.quests,
   drafts: state.drafts,
@@ -3538,6 +3546,33 @@ export const useAppStore = create<AppState>()(
       // ========== SEQUENCIAS DE CICLOS ==========
       cycleSequences: [],
       sequenceMemberships: [],
+      commitments: [],
+
+      addCommitment: (input) => {
+        const now = new Date();
+        const commitment: Commitment = {
+          id: `commitment-${Date.now()}`,
+          title: input.title.trim() || 'Novo compromisso',
+          date: new Date(input.date),
+          recurrence: input.recurrence ?? 'ONCE',
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({ commitments: [...state.commitments, commitment] }));
+        return commitment;
+      },
+
+      updateCommitment: (commitmentId, updates) => {
+        set((state) => ({
+          commitments: state.commitments.map((commitment) => commitment.id === commitmentId
+            ? { ...commitment, ...updates, updatedAt: new Date() }
+            : commitment),
+        }));
+      },
+
+      deleteCommitment: (commitmentId) => {
+        set((state) => ({ commitments: state.commitments.filter((commitment) => commitment.id !== commitmentId) }));
+      },
 
       createCycleSequence: (input) => {
         const now = input.startDate ? new Date(input.startDate) : new Date();
@@ -4511,6 +4546,7 @@ export const useAppStore = create<AppState>()(
         habits: state.habits,
         cycleSequences: state.cycleSequences,
         sequenceMemberships: state.sequenceMemberships,
+        commitments: state.commitments,
         projects: state.projects,
         quests: state.quests,
         drafts: state.drafts,

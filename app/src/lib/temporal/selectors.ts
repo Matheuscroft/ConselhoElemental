@@ -1,5 +1,5 @@
 import { EFFORT_MULTIPLIERS } from '@/constants';
-import type { CycleSequence, Habit, Mission, Project, Quest, Task } from '@/types';
+import type { Commitment, CycleSequence, Habit, Mission, Project, Quest, Task } from '@/types';
 import { eachDayOfInterval, isWithinInterval, startOfDay, toDayStamp, toValidDate } from '@/lib/temporal/date';
 
 export interface TemporalEvent {
@@ -14,7 +14,7 @@ export interface TemporalEvent {
 
 export interface TemporalCommitment {
   id: string;
-  sourceType: 'habit' | 'project' | 'quest' | 'mission' | 'sequence' | 'google';
+  sourceType: 'commitment' | 'habit' | 'project' | 'quest' | 'mission' | 'sequence' | 'google';
   sourceId: string;
   title: string;
   date: Date;
@@ -28,6 +28,7 @@ export interface TemporalSnapshot {
   cycleSequences: CycleSequence[];
   projects: Project[];
   quests: Quest[];
+  commitments?: Commitment[];
 }
 
 const toRoundedTaskScore = (task: Task): number => {
@@ -153,6 +154,41 @@ const sequenceMatchesDate = (sequence: CycleSequence, targetDate: Date): boolean
       return false;
     }
   }
+};
+
+const commitmentMatchesDate = (commitment: Commitment, targetDate: Date): boolean => {
+  const commitmentDate = toValidDate(commitment.date);
+  if (!commitmentDate || startOfDay(targetDate) < startOfDay(commitmentDate)) return false;
+
+  if (commitment.recurrence === 'ONCE') {
+    return toDayStamp(commitmentDate) === toDayStamp(targetDate);
+  }
+  if (commitment.recurrence === 'DAILY') return true;
+  if (commitment.recurrence === 'WEEKLY') return commitmentDate.getDay() === targetDate.getDay();
+  return commitmentDate.getDate() === targetDate.getDate();
+};
+
+export const buildOwnTemporalCommitments = (
+  commitments: Commitment[],
+  rangeStart: Date,
+  rangeEnd: Date
+): TemporalCommitment[] => {
+  return commitments.flatMap((commitment) => eachDayOfInterval(rangeStart, rangeEnd)
+    .filter((day) => commitmentMatchesDate(commitment, day))
+    .map((day) => {
+      const dayStamp = toDayStamp(day);
+      if (dayStamp == null) return null;
+      return {
+        id: `commitment:${commitment.id}:${dayStamp}`,
+        sourceType: 'commitment' as const,
+        sourceId: commitment.id,
+        title: commitment.title,
+        date: startOfDay(day),
+        dayStamp,
+        kind: commitment.recurrence === 'ONCE' ? 'due' as const : 'recurring' as const,
+      };
+    })
+    .filter((item) => item != null) as TemporalCommitment[]);
 };
 
 export const buildTemporalEvents = (snapshot: Pick<TemporalSnapshot, 'tasks' | 'habits'>): TemporalEvent[] => {

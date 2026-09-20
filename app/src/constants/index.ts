@@ -3,6 +3,7 @@
 // ============================================
 
 import type { Element, Area, ElementId } from '@/types';
+import { Body, Ecliptic, GeoVector } from 'astronomy-engine';
 
 import { AREAS_WITH_SUBAREAS } from './areas-with-subareas';
 
@@ -219,9 +220,38 @@ export function getMeteorShowerPeak(date: Date = new Date()): MeteorShowerPeak |
 export type ZodiacSign = {
   name: string;
   icon: string;
+  planet: string;
 };
 
-const ZODIAC_INGRESS_DATES: Array<{ month: number; day: number; name: string; icon: string }> = [
+const ZODIAC_SIGNS = [
+  { name: 'Áries', icon: '♈' },
+  { name: 'Touro', icon: '♉' },
+  { name: 'Gêmeos', icon: '♊' },
+  { name: 'Câncer', icon: '♋' },
+  { name: 'Leão', icon: '♌' },
+  { name: 'Virgem', icon: '♍' },
+  { name: 'Libra', icon: '♎' },
+  { name: 'Escorpião', icon: '♏' },
+  { name: 'Sagitário', icon: '♐' },
+  { name: 'Capricórnio', icon: '♑' },
+  { name: 'Aquário', icon: '♒' },
+  { name: 'Peixes', icon: '♓' },
+] as const;
+
+const ZODIAC_PLANET_DEFINITIONS = [
+  { name: 'Sol', body: Body.Sun },
+  { name: 'Lua', body: Body.Moon },
+  { name: 'Mercúrio', body: Body.Mercury },
+  { name: 'Vênus', body: Body.Venus },
+  { name: 'Marte', body: Body.Mars },
+  { name: 'Júpiter', body: Body.Jupiter },
+  { name: 'Saturno', body: Body.Saturn },
+  { name: 'Urano', body: Body.Uranus },
+  { name: 'Netuno', body: Body.Neptune },
+  { name: 'Plutão', body: Body.Pluto },
+] as const;
+
+const SOL_INGRESS_DATES: Array<{ month: number; day: number; name: string; icon: string }> = [
   { month: 1, day: 20, name: 'Aquário', icon: '♒' },
   { month: 2, day: 19, name: 'Peixes', icon: '♓' },
   { month: 3, day: 21, name: 'Áries', icon: '♈' },
@@ -236,16 +266,94 @@ const ZODIAC_INGRESS_DATES: Array<{ month: number; day: number; name: string; ic
   { month: 12, day: 22, name: 'Capricórnio', icon: '♑' },
 ];
 
+export type ZodiacIngress = ZodiacSign & { date: Date };
+
+const normalizeDegrees = (degrees: number) => ((degrees + 180) % 360 + 360) % 360 - 180;
+
+const getGeocentricLongitude = (body: Body, date: Date) => Ecliptic(GeoVector(body, date, true)).elon;
+
+const findIngressTime = (body: Body, start: Date, end: Date, target: number) => {
+  const startLongitude = getGeocentricLongitude(body, start);
+  const targetRelative = normalizeDegrees(target - startLongitude);
+  const endLongitude = getGeocentricLongitude(body, end);
+  const endRelative = normalizeDegrees(endLongitude - startLongitude);
+  const increasing = endRelative >= 0;
+  let low = start.getTime();
+  let high = end.getTime();
+
+  if ((increasing && (targetRelative < 0 || targetRelative > endRelative)) ||
+      (!increasing && (targetRelative > 0 || targetRelative < endRelative))) {
+    return null;
+  }
+
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    const middle = (low + high) / 2;
+    const middleLongitude = getGeocentricLongitude(body, new Date(middle));
+    const middleRelative = normalizeDegrees(middleLongitude - startLongitude);
+    if ((increasing && middleRelative < targetRelative) || (!increasing && middleRelative > targetRelative)) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+
+  return new Date((low + high) / 2);
+};
+
+export function getZodiacIngresses(startDate: Date, endDate: Date): ZodiacIngress[] {
+  const entries: ZodiacIngress[] = [];
+  const scanStart = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
+  const stepMilliseconds = 6 * 60 * 60 * 1000;
+
+  for (const planet of ZODIAC_PLANET_DEFINITIONS) {
+    let previousDate = scanStart;
+    let previousLongitude = getGeocentricLongitude(planet.body, previousDate);
+
+    while (previousDate < endDate) {
+      const nextDate = new Date(Math.min(previousDate.getTime() + stepMilliseconds, endDate.getTime() + stepMilliseconds));
+      const nextLongitude = getGeocentricLongitude(planet.body, nextDate);
+      const delta = normalizeDegrees(nextLongitude - previousLongitude);
+      const unwrappedNextLongitude = previousLongitude + delta;
+      const minimum = Math.min(previousLongitude, unwrappedNextLongitude);
+      const maximum = Math.max(previousLongitude, unwrappedNextLongitude);
+      const firstBoundary = Math.ceil(minimum / 30);
+      const lastBoundary = Math.floor(maximum / 30);
+
+      for (let boundary = firstBoundary; boundary <= lastBoundary; boundary += 1) {
+        const target = boundary * 30;
+        const date = findIngressTime(planet.body, previousDate, nextDate, target);
+        if (!date || date < startDate || date > endDate) continue;
+
+        const increasing = unwrappedNextLongitude >= previousLongitude;
+        const signIndex = ((boundary + (increasing ? 0 : -1)) % 12 + 12) % 12;
+        const sign = ZODIAC_SIGNS[signIndex];
+        entries.push({
+          date,
+          name: `Entrada de ${planet.name} em ${sign.name}`,
+          icon: sign.icon,
+          planet: planet.name,
+        });
+      }
+
+      previousDate = nextDate;
+      previousLongitude = nextLongitude;
+    }
+  }
+
+  return entries.sort((first, second) => first.date.getTime() - second.date.getTime());
+}
+
 export function getZodiacIngress(date: Date = new Date()): ZodiacSign | null {
   const month = date.getMonth() + 1;
   const day = date.getDate();
 
-  const ingress = ZODIAC_INGRESS_DATES.find((entry) => entry.month === month && entry.day === day);
+  const ingress = SOL_INGRESS_DATES.find((entry) => entry.month === month && entry.day === day);
   if (!ingress) return null;
 
   return {
-    name: `Entrada do Sol em ${ingress.name}`,
+    name: `Entrada de Sol em ${ingress.name}`,
     icon: ingress.icon,
+    planet: 'Sol',
   };
 }
 
@@ -254,39 +362,39 @@ export function getZodiacSign(date: Date = new Date()): ZodiacSign {
   const day = date.getDate();
 
   if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) {
-    return { name: 'Aquário', icon: '♒' };
+    return { name: 'Aquário', icon: '♒', planet: 'Sol' };
   }
   if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) {
-    return { name: 'Peixes', icon: '♓' };
+    return { name: 'Peixes', icon: '♓', planet: 'Sol' };
   }
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
-    return { name: 'Áries', icon: '♈' };
+    return { name: 'Áries', icon: '♈', planet: 'Sol' };
   }
   if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) {
-    return { name: 'Touro', icon: '♉' };
+    return { name: 'Touro', icon: '♉', planet: 'Sol' };
   }
   if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) {
-    return { name: 'Gêmeos', icon: '♊' };
+    return { name: 'Gêmeos', icon: '♊', planet: 'Sol' };
   }
   if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) {
-    return { name: 'Câncer', icon: '♋' };
+    return { name: 'Câncer', icon: '♋', planet: 'Sol' };
   }
   if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) {
-    return { name: 'Leão', icon: '♌' };
+    return { name: 'Leão', icon: '♌', planet: 'Sol' };
   }
   if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) {
-    return { name: 'Virgem', icon: '♍' };
+    return { name: 'Virgem', icon: '♍', planet: 'Sol' };
   }
   if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) {
-    return { name: 'Libra', icon: '♎' };
+    return { name: 'Libra', icon: '♎', planet: 'Sol' };
   }
   if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) {
-    return { name: 'Escorpião', icon: '♏' };
+    return { name: 'Escorpião', icon: '♏', planet: 'Sol' };
   }
   if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) {
-    return { name: 'Sagitário', icon: '♐' };
+    return { name: 'Sagitário', icon: '♐', planet: 'Sol' };
   }
-  return { name: 'Capricórnio', icon: '♑' };
+  return { name: 'Capricórnio', icon: '♑', planet: 'Sol' };
 }
 
 // ============================================

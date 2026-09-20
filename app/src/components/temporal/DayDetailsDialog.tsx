@@ -20,6 +20,7 @@ export const DayDetailsDialog: React.FC<DayDetailsDialogProps> = ({
   commitments,
 }) => {
   const getCommitmentSourceLabel = (sourceType: TemporalCommitment['sourceType']) => {
+    if (sourceType === 'commitment') return 'Compromisso';
     if (sourceType === 'habit') return 'Hábito';
     if (sourceType === 'sequence') return 'Sequência';
     if (sourceType === 'project') return 'Projeto';

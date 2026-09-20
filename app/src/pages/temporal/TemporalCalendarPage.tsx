@@ -4,7 +4,7 @@ import { useAppStore } from '@/stores/appStore';
 import {
   addDays,
   buildDayAggregates,
-  buildTemporalCommitments,
+  buildOwnTemporalCommitments,
   buildTemporalEvents,
   eachDayOfInterval,
   endOfMonth,
@@ -16,7 +16,8 @@ import {
   useWeekStartsOnPreference,
 } from '@/lib/temporal';
 import type { TemporalCommitment } from '@/lib/temporal';
-import { WEEKDAYS_SHORT, getMoonPhase, getMeteorShowerPeak, getZodiacIngress, getZodiacSign } from '@/constants';
+import type { Commitment, CommitmentRecurrence } from '@/types';
+import { WEEKDAYS_SHORT, getMoonPhase, getMeteorShowerPeak, getZodiacIngress, getZodiacIngresses, getZodiacSign } from '@/constants';
 import { TemporalLayout } from '@/pages/temporal/TemporalLayout';
 import { DayDetailsDialog } from '@/components/temporal/DayDetailsDialog';
 import {
@@ -35,12 +36,21 @@ type ZodiacIngressEntry = {
   date: Date;
   name: string;
   icon: string;
+  planet: string;
 };
+
+const ZODIAC_PLANETS = ['Todos', 'Sol', 'Lua', 'Mercúrio', 'Vênus', 'Marte', 'Júpiter', 'Saturno', 'Urano', 'Netuno', 'Plutão'];
 
 export const TemporalCalendarPage: React.FC = () => {
   const [anchorDate, setAnchorDate] = useState(new Date());
   const { weekStartsOn } = useWeekStartsOnPreference();
   const [selectedDayStamp, setSelectedDayStamp] = useState<number | null>(null);
+  const [selectedIngressPlanet, setSelectedIngressPlanet] = useState('Todos');
+  const [showCommitmentForm, setShowCommitmentForm] = useState(false);
+  const [editingCommitmentId, setEditingCommitmentId] = useState<string | null>(null);
+  const [commitmentTitle, setCommitmentTitle] = useState('');
+  const [commitmentDate, setCommitmentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [commitmentRecurrence, setCommitmentRecurrence] = useState<CommitmentRecurrence>('ONCE');
   const [googleCommitments, setGoogleCommitments] = useState<TemporalCommitment[]>([]);
 
   const tasks = useAppStore((state) => state.tasks);
@@ -48,6 +58,10 @@ export const TemporalCalendarPage: React.FC = () => {
   const cycleSequences = useAppStore((state) => state.cycleSequences);
   const projects = useAppStore((state) => state.projects);
   const quests = useAppStore((state) => state.quests);
+  const commitments = useAppStore((state) => state.commitments);
+  const addCommitment = useAppStore((state) => state.addCommitment);
+  const updateCommitment = useAppStore((state) => state.updateCommitment);
+  const deleteCommitment = useAppStore((state) => state.deleteCommitment);
 
   const snapshot = useMemo(
     () => ({ tasks, habits, cycleSequences, projects, quests }),
@@ -71,9 +85,36 @@ export const TemporalCalendarPage: React.FC = () => {
   }, [anchorDate, weekStartsOn]);
 
   const internalCommitments = useMemo(
-    () => buildTemporalCommitments(snapshot, gridWindow.gridStart, gridWindow.gridEnd),
-    [snapshot, gridWindow.gridStart, gridWindow.gridEnd]
+    () => buildOwnTemporalCommitments(commitments, gridWindow.gridStart, gridWindow.gridEnd),
+    [commitments, gridWindow.gridStart, gridWindow.gridEnd]
   );
+
+  const resetCommitmentForm = () => {
+    setCommitmentTitle('');
+    setCommitmentDate(new Date().toISOString().slice(0, 10));
+    setCommitmentRecurrence('ONCE');
+    setEditingCommitmentId(null);
+    setShowCommitmentForm(false);
+  };
+
+  const handleCommitmentSubmit = () => {
+    if (!commitmentTitle.trim() || !commitmentDate) return;
+    const input = { title: commitmentTitle, date: new Date(`${commitmentDate}T12:00:00`), recurrence: commitmentRecurrence };
+    if (editingCommitmentId) {
+      updateCommitment(editingCommitmentId, input);
+    } else {
+      addCommitment(input);
+    }
+    resetCommitmentForm();
+  };
+
+  const startEditingCommitment = (commitment: Commitment) => {
+    setEditingCommitmentId(commitment.id);
+    setCommitmentTitle(commitment.title);
+    setCommitmentDate(new Date(commitment.date).toISOString().slice(0, 10));
+    setCommitmentRecurrence(commitment.recurrence);
+    setShowCommitmentForm(true);
+  };
 
   useEffect(() => {
     let isCancelled = false;
@@ -154,19 +195,21 @@ export const TemporalCalendarPage: React.FC = () => {
     return monthCommitments;
   }, [combinedCommitments, grid.monthStart]);
 
+  const ownMonthCommitments = useMemo(
+    () => selectedMonthCommitments.filter((item) => item.sourceType === 'commitment'),
+    [selectedMonthCommitments]
+  );
+
   const zodiacIngressesInMonth = useMemo(() => {
-    return eachDayOfInterval(grid.monthStart, grid.monthEnd)
-      .map((date) => {
-        const ingress = getZodiacIngress(date);
-        if (!ingress) return null;
-        return {
-          date,
-          name: ingress.name,
-          icon: ingress.icon,
-        } satisfies ZodiacIngressEntry;
-      })
-      .filter((entry): entry is ZodiacIngressEntry => entry != null);
+    return getZodiacIngresses(grid.monthStart, grid.monthEnd) satisfies ZodiacIngressEntry[];
   }, [grid.monthEnd, grid.monthStart]);
+
+  const filteredZodiacIngresses = useMemo(
+    () => selectedIngressPlanet === 'Todos'
+      ? zodiacIngressesInMonth
+      : zodiacIngressesInMonth.filter((entry) => entry.planet === selectedIngressPlanet),
+    [selectedIngressPlanet, zodiacIngressesInMonth]
+  );
 
   const daysByStamp = useMemo(() => new Map(grid.days.map((day) => [day.dayStamp, day])), [grid.days]);
 
@@ -299,16 +342,42 @@ export const TemporalCalendarPage: React.FC = () => {
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <h3 className="text-sm uppercase tracking-[0.2em] text-white/60">Entradas de signo no mês</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm uppercase tracking-[0.2em] text-white/60">Entradas de signo no mês</h3>
+            <p className="mt-1 text-xs text-white/45">Filtre as entradas pelo planeta em trânsito.</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-white/60">
+            <span>Planeta</span>
+            <select
+              value={selectedIngressPlanet}
+              onChange={(event) => setSelectedIngressPlanet(event.target.value)}
+              className="rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-mystic-gold/60"
+            >
+              {ZODIAC_PLANETS.map((planet) => (
+                <option key={planet} value={planet} className="bg-slate-900 text-white">
+                  {planet}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-          {zodiacIngressesInMonth.length === 0 ? (
-            <p className="text-sm text-white/60">Sem entradas de signo mapeadas neste mês.</p>
+          {filteredZodiacIngresses.length === 0 ? (
+            <p className="text-sm text-white/60">
+              {zodiacIngressesInMonth.length === 0
+                ? 'Sem entradas de signo mapeadas neste mês.'
+                : `Nenhuma entrada de ${selectedIngressPlanet} neste mês.`}
+            </p>
           ) : (
-            zodiacIngressesInMonth.map((entry) => (
+            filteredZodiacIngresses.map((entry) => (
               <article key={entry.date.toISOString()} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
-                <p className="text-sm text-white">
-                  {entry.icon} {entry.name}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-white">{entry.icon} {entry.name}</p>
+                  <span className="rounded-full border border-mystic-gold/30 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-mystic-gold/80">
+                    {entry.planet}
+                  </span>
+                </div>
                 <p className="text-xs text-white/60">{entry.date.toLocaleDateString('pt-BR')}</p>
               </article>
             ))
@@ -317,7 +386,76 @@ export const TemporalCalendarPage: React.FC = () => {
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <h3 className="text-sm uppercase tracking-[0.2em] text-white/60">Compromissos do mês</h3>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm uppercase tracking-[0.2em] text-white/60">Compromissos do mês</h3>
+            <p className="mt-1 text-xs text-white/45">Compromissos independentes de treinos, hábitos e ciclos.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCommitmentForm((current) => !current)}
+            className="rounded-lg border border-mystic-gold/40 px-3 py-2 text-sm text-mystic-gold hover:bg-mystic-gold/10"
+          >
+            {showCommitmentForm ? 'Fechar' : 'Novo compromisso'}
+          </button>
+        </div>
+
+        {showCommitmentForm ? (
+          <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-black/20 p-3 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
+            <label className="text-xs text-white/60">
+              Nome
+              <input value={commitmentTitle} onChange={(event) => setCommitmentTitle(event.target.value)} placeholder="Ex.: Consulta médica" className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-mystic-gold/60" />
+            </label>
+            <label className="text-xs text-white/60">
+              Data
+              <input type="date" value={commitmentDate} onChange={(event) => setCommitmentDate(event.target.value)} className="mt-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-mystic-gold/60" />
+            </label>
+            <label className="text-xs text-white/60">
+              Recorrência
+              <select value={commitmentRecurrence} onChange={(event) => setCommitmentRecurrence(event.target.value as CommitmentRecurrence)} className="mt-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-mystic-gold/60">
+                <option value="ONCE" className="bg-slate-900">Não recorrente</option>
+                <option value="DAILY" className="bg-slate-900">Diária</option>
+                <option value="WEEKLY" className="bg-slate-900">Semanal</option>
+                <option value="MONTHLY" className="bg-slate-900">Mensal</option>
+              </select>
+            </label>
+            <button type="button" onClick={handleCommitmentSubmit} className="rounded-lg bg-mystic-gold px-3 py-2 text-sm font-medium text-black hover:bg-mystic-gold/80">
+              {editingCommitmentId ? 'Salvar' : 'Adicionar'}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+          {ownMonthCommitments.length === 0 ? (
+            <p className="text-sm text-white/60">Nenhum compromisso próprio neste mês.</p>
+          ) : (
+            ownMonthCommitments.map((item) => {
+              const source = commitments.find((commitment) => commitment.id === item.sourceId);
+              return (
+                <article key={item.id} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-white">{item.title}</p>
+                      <p className="text-xs text-white/60">
+                        {item.date.toLocaleDateString('pt-BR')} • {source?.recurrence === 'ONCE' ? 'não recorrente' : 'recorrente'}
+                      </p>
+                    </div>
+                    {source ? (
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => startEditingCommitment(source)} className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/70 hover:bg-white/10">Editar</button>
+                        <button type="button" onClick={() => deleteCommitment(source.id)} className="rounded-md border border-red-400/30 px-2 py-1 text-xs text-red-300 hover:bg-red-400/10">Excluir</button>
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <h3 className="text-sm uppercase tracking-[0.2em] text-white/60">Outros prazos e eventos</h3>
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
           {selectedMonthCommitments.length === 0 ? (
             <p className="text-sm text-white/60">Nenhum compromisso encontrado para este mês.</p>
